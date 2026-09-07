@@ -1,0 +1,33 @@
+PASS Enter key starts a run through the Input System
+PASS D key moves right with positive speed
+PASS D key moves left with negative speed
+PASS Negative attack heals an actual enemy without exceeding max HP
+PASS Defense -3 adds 6 incoming damage
+PASS Fortune -3 removes 6 coins on pickup
+PASS Negative fortune stops wallet at zero
+PASS Fixed-damage bomb kills while attack is negative
+PASS Swept projectile collision kills a target
+PASS Pause freezes combat and the run timer
+PASS Room-clear auto-collection applies negative fortune
+PASS Clearing a room requires a trade
+PASS Mandatory exchange cannot be skipped
+PASS Room 1 exchange preserves the total
+PASS Room 1 opens camp
+PASS Room 2 exchange preserves the total
+PASS Room 2 opens camp
+PASS Room 3 exchange preserves the total
+PASS Room 3 opens camp
+PASS Boss spawns in room 4
+PASS Room 4 exchange preserves the total
+PASS Room 4 opens camp
+PASS Room 5 exchange preserves the total
+PASS Room 5 opens camp
+PASS Room 6 exchange preserves the total
+PASS Room 6 opens camp
+PASS Room 7 exchange preserves the total
+PASS Room 7 opens camp
+PASS Boss spawns in room 8
+PASS Room 8 exchange preserves the total
+PASS Final room requires its exchange before victory
+PASS Lethal hit opens death screen
+PASS Restart resets the full run

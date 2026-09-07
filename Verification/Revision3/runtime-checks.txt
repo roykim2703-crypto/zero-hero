@@ -1,0 +1,197 @@
+PASS Enter opens the starting shop through the Input System
+PASS Starting money and both basic weapons
+PASS Purchase deducts the price and equips the gun
+PASS Equipping an owned weapon does not charge again
+PASS Insufficient funds reject a purchase
+PASS Weapon can be purchased: 낡은 권총
+PASS Weapon can be purchased: 리볼버
+PASS Weapon can be purchased: 기관권총
+PASS Weapon can be purchased: 산탄총
+PASS Weapon can be purchased: 사냥 소총
+PASS Weapon can be purchased: 돌격소총
+PASS Weapon can be purchased: 중기관총
+PASS Weapon can be purchased: 저격총
+PASS Weapon can be purchased: 쌍열 산탄총
+PASS Weapon can be purchased: 전자포
+PASS Weapon can be purchased: 녹슨 칼
+PASS Weapon can be purchased: 단검
+PASS Weapon can be purchased: 군용검
+PASS Weapon can be purchased: 레이피어
+PASS Weapon can be purchased: 커틀러스
+PASS Weapon can be purchased: 장검
+PASS Weapon can be purchased: 대검
+PASS Weapon can be purchased: 곡도
+PASS Weapon can be purchased: 처형검
+PASS Weapon can be purchased: 흑철검
+PASS All twenty weapons are owned without changing stat total
+PASS Potion heals once per shop
+PASS Shield is limited to once per shop
+PASS Shop opens exactly three route cards
+PASS A route must be selected before entering
+PASS Chosen map controls the actual encounter roster
+PASS Weapons cannot be bought during combat
+PASS D moves right at positive speed
+PASS D moves left at negative speed
+PASS Space jumps through the Input System
+PASS Second airborne jump is available
+PASS Third airborne jump is rejected
+PASS Gravity lands on the floor
+PASS One-way platform catches falling bodies
+PASS S plus jump drops through a platform
+PASS Negative attack heals an ordinary enemy
+PASS Ordinary healing is capped at maximum health
+PASS Undead take twice the negative attack as damage
+PASS Negative defense increases incoming damage
+PASS Negative fortune removes money
+PASS Wallet cannot become negative
+PASS Bomb can kill with negative attack and starts its cooldown
+PASS Shotgun fires five pellets at its own bullet speed
+PASS Attack interval prevents early repeat fire
+PASS Sniper has its own speed and penetration
+PASS Swept piercing bullet hits two separate targets
+PASS Sword cuts several enemies in its forward arc
+PASS Orcs enter in simultaneous groups of four
+PASS Goblins enter in simultaneous groups of six
+PASS Elf actually shoots an arcing hostile arrow
+PASS Elf retreats when the player is too close
+PASS Beam warning causes no damage or petrification
+PASS Active Medusa beam damages and petrifies
+PASS Petrification blocks attacks and jumps
+PASS Petrification expires without requiring input
+PASS Shield prevents both beam damage and petrification
+PASS Medusa pattern 0 creates a gameplay action
+PASS Medusa pattern 1 creates a gameplay action
+PASS Medusa pattern 2 creates a gameplay action
+PASS Medusa pattern 3 creates a gameplay action
+PASS Angel pattern 0 creates a gameplay action
+PASS Angel pattern 1 creates a gameplay action
+PASS Angel pattern 2 creates a gameplay action
+PASS Angel pattern 3 creates a gameplay action
+PASS Angel has six eye-covered wings
+PASS Heart pattern 0 creates a gameplay action
+PASS Heart pattern 1 creates a gameplay action
+PASS Heart pattern 2 creates a gameplay action
+PASS Heart summons three undead
+PASS Heart pattern 3 creates a gameplay action
+PASS Beelzebub pattern 0 creates a gameplay action
+PASS Beelzebub transforms into an attacking fly swarm
+PASS Fly transformation remains damageable
+PASS Beelzebub returns from the fly swarm
+PASS Beelzebub pattern 1 creates a gameplay action
+PASS Beelzebub pattern 2 creates a gameplay action
+PASS Beelzebub pattern 3 creates a gameplay action
+PASS DemonKing pattern 0 creates a gameplay action
+PASS DemonKing pattern 1 creates a gameplay action
+PASS DemonKing pattern 2 creates a gameplay action
+PASS DemonKing pattern 3 creates a gameplay action
+PASS DemonKing pattern 4 creates a gameplay action
+PASS Pause freezes combat and the run timer
+PASS Map 1 presents three routes
+PASS Map 1 matches its card's enemy count
+PASS Map 1 requires an exchange after clearing
+PASS Clear auto-collection applies negative fortune to all remaining coins
+PASS Exchange cannot be skipped on map 1
+PASS Map 1 preserves stat total and advances correctly
+PASS Map 2 presents three routes
+PASS Map 2 matches its card's enemy count
+PASS Map 2 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 2
+PASS Map 2 preserves stat total and advances correctly
+PASS Map 3 presents three routes
+PASS Map 3 matches its card's enemy count
+PASS Map 3 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 3
+PASS Map 3 preserves stat total and advances correctly
+PASS Map 4 presents three routes
+PASS Map 4 matches its card's enemy count
+PASS Correct boss for map 4
+PASS Map 4 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 4
+PASS Map 4 preserves stat total and advances correctly
+PASS Map 5 presents three routes
+PASS Map 5 matches its card's enemy count
+PASS Map 5 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 5
+PASS Map 5 preserves stat total and advances correctly
+PASS Map 6 presents three routes
+PASS Map 6 matches its card's enemy count
+PASS Map 6 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 6
+PASS Map 6 preserves stat total and advances correctly
+PASS Map 7 presents three routes
+PASS Map 7 matches its card's enemy count
+PASS Map 7 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 7
+PASS Map 7 preserves stat total and advances correctly
+PASS Map 8 presents three routes
+PASS Map 8 matches its card's enemy count
+PASS Correct boss for map 8
+PASS Map 8 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 8
+PASS Map 8 preserves stat total and advances correctly
+PASS Map 9 presents three routes
+PASS Map 9 matches its card's enemy count
+PASS Map 9 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 9
+PASS Map 9 preserves stat total and advances correctly
+PASS Map 10 presents three routes
+PASS Map 10 matches its card's enemy count
+PASS Map 10 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 10
+PASS Map 10 preserves stat total and advances correctly
+PASS Map 11 presents three routes
+PASS Map 11 matches its card's enemy count
+PASS Map 11 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 11
+PASS Map 11 preserves stat total and advances correctly
+PASS Map 12 presents three routes
+PASS Map 12 matches its card's enemy count
+PASS Correct boss for map 12
+PASS Map 12 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 12
+PASS Map 12 preserves stat total and advances correctly
+PASS Map 13 presents three routes
+PASS Map 13 matches its card's enemy count
+PASS Map 13 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 13
+PASS Map 13 preserves stat total and advances correctly
+PASS Map 14 presents three routes
+PASS Map 14 matches its card's enemy count
+PASS Map 14 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 14
+PASS Map 14 preserves stat total and advances correctly
+PASS Map 15 presents three routes
+PASS Map 15 matches its card's enemy count
+PASS Map 15 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 15
+PASS Map 15 preserves stat total and advances correctly
+PASS Map 16 presents three routes
+PASS Map 16 matches its card's enemy count
+PASS Correct boss for map 16
+PASS Map 16 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 16
+PASS Map 16 preserves stat total and advances correctly
+PASS Map 17 presents three routes
+PASS Map 17 matches its card's enemy count
+PASS Map 17 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 17
+PASS Map 17 preserves stat total and advances correctly
+PASS Map 18 presents three routes
+PASS Map 18 matches its card's enemy count
+PASS Map 18 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 18
+PASS Map 18 preserves stat total and advances correctly
+PASS Map 19 presents three routes
+PASS Map 19 matches its card's enemy count
+PASS Map 19 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 19
+PASS Map 19 preserves stat total and advances correctly
+PASS Map 20 presents three routes
+PASS Map 20 matches its card's enemy count
+PASS Correct boss for map 20
+PASS Map 20 requires an exchange after clearing
+PASS Exchange cannot be skipped on map 20
+PASS Map 20 preserves stat total and advances correctly
+PASS Twenty-map campaign contains five bosses and ends after the final exchange
+PASS Lethal damage opens the death screen
+PASS Restart resets health, stats, inventory, money and progress
