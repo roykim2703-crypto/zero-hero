@@ -8,13 +8,15 @@ namespace ZeroHero
         {
             var d=ZeroContent.Enemies[(int)kind];
             var e=new Enemy { kind=kind,pos=pos,maxHp=d.health*(d.Boss?1:1+Act*.22f),timer=Range(.6f,1.7f),jumpTimer=1 };
-            e.hp=e.maxHp; e.pos.y=e.Flying?(kind==EnemyKind.Angel?1.3f:.3f):Floor+d.size*.55f;
+            e.hp=e.maxHp; e.facing=player.x<e.pos.x?-1:1; e.turnTimer=2.4f; e.pos.y=e.Flying?(kind==EnemyKind.Angel?1.3f:.3f):Floor+d.size*.55f;
             e.root=new GameObject(d.name).transform; e.root.SetParent(world); e.root.position=e.pos;
             Sprite("Shadow",art.disc,new Color(0,0,0,.3f),new Vector2(0,-d.size*.5f),new Vector2(d.size,.16f),10,e.root);
             e.body=Sprite(d.name,art.creatures[(int)kind],Color.white,Vector2.zero,Vector2.one*d.size,20,e.root);
             Sprite("Health track",art.square,C("191E19"),new Vector2(0,d.size*.67f),new Vector2(d.size,.075f),24,e.root);
             e.health=Sprite("Health",art.square,d.Boss?ZeroHeroArt.Gold:ZeroHeroArt.Pink,new Vector2(0,d.size*.67f),new Vector2(d.size,.075f),25,e.root);
-            if(kind==EnemyKind.Elf)
+            if(kind==EnemyKind.RearGuard)
+                e.guard=Sprite("Front shield",art.square,C("B3A578"),new Vector2(e.facing*.6f,0),new Vector2(.2f,1.0f),23,e.root);
+            if(kind==EnemyKind.Elf || kind==EnemyKind.Inverter)
             {
                 Sprite("Bow",art.ring,C("B39760"),new Vector2(.5f,.1f),new Vector2(.4f,.9f),22,e.root);
                 Sprite("Bow string",art.square,C("D8D0B5"),new Vector2(.5f,.1f),new Vector2(.035f,.8f),23,e.root);
@@ -42,7 +44,8 @@ namespace ZeroHero
                 var e=enemies[i]; e.timer-=dt; e.flash-=dt; e.jumpTimer-=dt;
                 if(e.Def.Boss) TickBoss(e,dt); else TickNormal(e,dt);
                 e.root.position=e.pos;
-                e.body.flipX=player.x<e.pos.x;
+                e.body.flipX=e.kind==EnemyKind.RearGuard?e.facing<0:player.x<e.pos.x;
+                if(e.guard!=null) e.guard.transform.localPosition=new Vector2(e.facing*.6f,0);
                 e.body.color=e.flash>0?ZeroHeroArt.Gain:e.casting?Color.Lerp(Color.white,ZeroHeroArt.Gold,.38f):Color.white;
                 float pulse=e.kind==EnemyKind.Heart?1+Mathf.Sin(visualTime*5.8f)*.08f:1;
                 e.body.transform.localScale=Vector3.one*(e.flyTime>0?.6f:e.Def.size*pulse);
@@ -54,14 +57,17 @@ namespace ZeroHero
         void TickNormal(Enemy e,float dt)
         {
             float dx=player.x-e.pos.x, distance=Mathf.Abs(dx); float speed=e.Def.speed;
+            if(e.kind==EnemyKind.RearGuard)
+            { e.turnTimer-=dt; if(e.turnTimer<=0 && !e.casting && Mathf.Abs(dx)>.01f) { e.facing=Mathf.Sign(dx); e.turnTimer=2.4f; } }
+            bool ranged=e.kind==EnemyKind.Elf || e.kind==EnemyKind.Inverter;
             e.velocity.x=Mathf.Sign(dx)*speed;
-            if(e.kind==EnemyKind.Elf) e.velocity.x=distance<5?-Mathf.Sign(dx)*speed:distance>8?Mathf.Sign(dx)*speed:0;
+            if(ranged) e.velocity.x=distance<5?-Mathf.Sign(dx)*speed:distance>8?Mathf.Sign(dx)*speed:0;
             if(e.casting)
             {
                 e.velocity.x=0; e.windup-=dt;
                 if(e.windup<=0)
                 {
-                    if(e.kind==EnemyKind.Elf)
+                    if(ranged)
                     {
                         Vector2 delta=player-e.pos; float flight=Mathf.Max(.2f,delta.magnitude/10);
                         CreateShot(e.pos,delta/flight+Vector2.up*2*flight,e.Def.damage,true,ShotKind.Arrow,1,4);
@@ -73,12 +79,12 @@ namespace ZeroHero
                         CreateShot(new Vector2(e.pos.x,Floor+.35f),new Vector2(Mathf.Sign(dx)*5,0),e.Def.damage/2,true,ShotKind.Blood);
                     }
                     else if(Vector2.Distance(e.pos,player)<1.65f) Hurt(e.Def.damage);
-                    e.casting=false; e.timer=e.kind==EnemyKind.Elf?1.9f:e.kind==EnemyKind.Giant?2.6f:1.15f;
+                    e.casting=false; e.timer=ranged?1.9f:e.kind==EnemyKind.Giant?2.6f:1.15f;
                 }
             }
-            else if(e.timer<=0 && (e.kind==EnemyKind.Elf || distance<(e.kind==EnemyKind.Giant?3.1f:1.4f)) && Mathf.Abs(player.y-e.pos.y)<(e.kind==EnemyKind.Elf?12:3))
+            else if(e.timer<=0 && (ranged || distance<(e.kind==EnemyKind.Giant?3.1f:1.4f)) && Mathf.Abs(player.y-e.pos.y)<(ranged?12:3))
             {
-                e.casting=true; e.windup=e.kind==EnemyKind.Giant?1.05f:e.kind==EnemyKind.Elf?.55f:.38f;
+                e.casting=true; e.windup=e.kind==EnemyKind.Giant?1.05f:ranged?.55f:.38f;
                 if(e.kind==EnemyKind.Giant) AddHazard(new Vector2(e.pos.x+Mathf.Sign(dx)*1.5f,Floor+.1f),new Vector2(3.4f,.12f),1.05f,.01f,0,ZeroHeroArt.Gold);
             }
             if(e.kind!=EnemyKind.Giant && e.jumpTimer<=0 && player.y>e.pos.y+1.2f && distance<7)

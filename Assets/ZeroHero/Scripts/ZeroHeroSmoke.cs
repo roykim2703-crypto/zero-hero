@@ -21,6 +21,8 @@ namespace ZeroHero
             Application.logMessageReceived += captureError;
             Action<bool,string> check = (condition,name) => { checks.Add((condition?"PASS ":"FAIL ")+name); if(!condition) errors.Add(name); };
             muted = true;
+            for(int i=0;i<ZeroStats.Count;i++) metaLevels[i]=0;
+            legacyPoints=totalRuns=totalDeaths=totalVictories=lifetimeKills=lifetimeGold=0;
             yield return new WaitForSeconds(.8f);
             yield return CaptureSmoke(folder,"01-title");
             var keyboard = Keyboard.current;
@@ -31,17 +33,19 @@ namespace ZeroHero
                 check(phase==Phase.Camp,"Enter opens the starting shop through the Input System");
             }
             else { StartRun(); check(false,"Keyboard device exists"); }
-            check(wallet==90 && owned.Count==2 && activeWeapon==0,"Starting money and both basic weapons");
-            check(BuyWeapon(1) && wallet==45 && gunSlot==1,"Purchase deducts the price and equips the gun");
-            check(BuyWeapon(1) && wallet==45,"Equipping an owned weapon does not charge again");
-            check(!BuyWeapon(9) && wallet==45,"Insufficient funds reject a purchase");
-            wallet=10000;
+            check(wallet==500 && owned.Count==2 && activeWeapon==0,"Starting money and both basic weapons");
+            int[] expectedMagazines={8,6,30,10,12,25,100,5,2,-1};
+            for(int i=0;i<expectedMagazines.Length;i++) check(gunAmmo[i]==expectedMagazines[i],"Starting magazine: "+ZeroContent.Weapons[i].name);
+            check(BuyWeapon(11) && wallet==0 && swordSlot==11,"Purchase deducts the new price and equips the sword");
+            check(BuyWeapon(11) && wallet==0,"Equipping an owned weapon does not charge again");
+            check(!BuyWeapon(9) && wallet==0,"Insufficient funds reject a purchase");
+            wallet=100000;
             foreach(var w in ZeroContent.Weapons) check(BuyWeapon(w.id),"Weapon can be purchased: "+w.name);
             check(owned.Count==20 && stats.Total==10,"All twenty weapons are owned without changing stat total");
             StartRun(); yield return CaptureSmoke(folder,"02-shop-guns");
             shopTab=1; yield return CaptureSmoke(folder,"03-shop-swords");
-            hp=40; check(BuySupply(false) && hp==80 && !BuySupply(false),"Potion heals once per shop");
-            check(BuySupply(true) && shields==1 && !BuySupply(true),"Shield is limited to once per shop");
+            wallet=1000; hp=40; check(BuySupply(false) && hp==80 && wallet==500 && !BuySupply(false),"Potion costs 500 and heals once per shop");
+            check(BuySupply(true) && wallet==150 && shields==1 && !BuySupply(true),"Shield costs 350 and is limited to once per shop");
             StartRun(); NextRoom();
             check(phase==Phase.Route && routes.Length==3,"Shop opens exactly three route cards");
             ChooseRoute(); check(phase==Phase.Route,"A route must be selected before entering");
@@ -56,11 +60,13 @@ namespace ZeroHero
             {
                 InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.D)); yield return new WaitForSeconds(.16f);
                 InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
-                check(player.x>before.x,"D moves right at positive speed");
+                check(player.x>before.x && aim.x>.9f,"D moves and aims right at positive speed");
                 stats.Exchange(0,2,5); before=player;
                 InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.D)); yield return new WaitForSeconds(.16f);
                 InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
-                check(player.x<before.x,"D moves left at negative speed");
+                check(player.x<before.x && aim.x>.9f,"Negative speed reverses movement but keeps D attack direction right");
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W)); yield return null; yield return null;
+                check(aim.y>.9f,"W sets attack direction upward without the mouse");
                 stats=new ZeroStats(); before=player;
                 InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.Space)); yield return null; yield return null;
                 InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
@@ -88,13 +94,31 @@ namespace ZeroHero
             Collect(new Pickup { pos=player,value=2 }); check(wallet==4,"Negative fortune removes money");
             Collect(new Pickup { pos=player,value=5 }); check(wallet==0,"Wallet cannot become negative");
 
-            target=SmokeArena(EnemyKind.Human); player=new Vector2(0,Floor+HeroHalf); target.pos=new Vector2(2,player.y); target.root.position=target.pos;
+            target=SmokeArena(EnemyKind.Human); target.hp=42; player=new Vector2(0,Floor+HeroHalf); target.pos=new Vector2(2,player.y); target.root.position=target.pos;
             stats.Exchange(1,0,5); Bomb(); check(enemies.Count==0 && bombTimer==6,"Bomb can kill with negative attack and starts its cooldown");
             target=SmokeArena(EnemyKind.Human); owned.Add(3); Equip(3); aim=Vector2.right; attackTimer=0; Fire();
-            check(shots.Count==5 && Mathf.Abs(shots[0].velocity.magnitude-16)<.01f,"Shotgun fires five pellets at its own bullet speed");
+            check(shots.Count==5 && gunAmmo[3]==9 && Mathf.Abs(shots[0].velocity.magnitude-16)<.01f,"Shotgun fires five pellets while spending one shell");
             int fired=shots.Count; Fire(); check(shots.Count==fired && Mathf.Abs(attackTimer-1/Weapon.rate)<.001f,"Attack interval prevents early repeat fire");
             ClearProjectiles(); owned.Add(7); Equip(7); attackTimer=0; Fire();
-            check(shots.Count==1 && shots[0].pierce==2 && Mathf.Abs(shots[0].velocity.magnitude-44)<.01f,"Sniper has its own speed and penetration");
+            check(shots.Count==1 && gunAmmo[7]==4 && shots[0].pierce==2 && Mathf.Abs(shots[0].velocity.magnitude-44)<.01f,"Sniper spends one of five rounds and retains its speed and penetration");
+            ClearProjectiles(); owned.Add(8); Equip(8); gunAmmo[8]=1; gunReload[8]=0; attackTimer=0; Fire();
+            check(gunAmmo[8]==0 && Mathf.Abs(gunReload[8]-.75f)<.001f,"Empty double-barrel begins its fast reload automatically");
+            TickReloads(.8f); check(gunAmmo[8]==2 && gunReload[8]==0,"Double-barrel reload refills both shells");
+            owned.Add(0); Equip(0); gunAmmo[0]=4; gunReload[0]=0;
+            if(keyboard!=null)
+            {
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.R)); yield return null; yield return null;
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
+                check(gunReload[0]>0,"R starts a manual reload through the Input System");
+            }
+            stats=new ZeroStats(); stats.Exchange(0,2,5); gunAmmo[0]=0; gunReload[0]=ZeroContent.Weapons[0].reloadTime; float pausedReload=gunReload[0];
+            TickReloads(1); check(gunReload[0]==pausedReload && gunAmmo[0]==0,"Negative movement speed freezes an active reload");
+            gunReload[0]=0; check(!BeginReload(0,false),"Negative movement speed cannot start a reload");
+            yield return CaptureSmoke(folder,"13-reload-blocked");
+            stats=new ZeroStats(); stats.Exchange(0,2,3); check(BeginReload(0,false),"Zero movement speed can start a reload");
+            float zeroSeconds=ReloadSecondsLeft(0); check(zeroSeconds>ZeroContent.Weapons[0].reloadTime*2.9f,"Zero movement speed makes reload three times slower");
+            gunReload[0]=ZeroContent.Weapons[0].reloadTime; stats=new ZeroStats(); stats.Exchange(2,1,3); TickReloads(.5f);
+            check(Mathf.Abs(gunReload[0]-(ZeroContent.Weapons[0].reloadTime-1f))<.01f,"Higher movement speed accelerates reload progress");
             ClearActors(); SpawnEnemy(EnemyKind.Human,new Vector2(-4,0)); SpawnEnemy(EnemyKind.Human,new Vector2(-2,0));
             CreateShot(new Vector2(-6,Floor+.64f),Vector2.right*44,99,false,ShotKind.Bullet,2);
             for(int i=0;i<15 && enemies.Count>0;i++) TickShots(.02f);
@@ -155,30 +179,79 @@ namespace ZeroHero
             paused=true; Vector2 frozen=player; float time=runTime; yield return new WaitForSeconds(.12f);
             check(player==frozen && runTime==time,"Pause freezes combat and the run timer"); paused=false;
 
+            // The design document adds negative-defense healing and two inversion enemies.
+            target=SmokeArena(EnemyKind.Human); stats.Exchange(0,1,5); hp=20;
+            HealPlayer(12); check(hp==38,"Defense -3 adds six to received healing");
+            hp=98; HealPlayer(40); check(hp==100,"Amplified healing respects maximum health");
+            hp=60; HealPlayer(0); check(hp==60,"Zero healing cannot create free recovery");
+            stats=new ZeroStats(); stats.Exchange(0,4,3);
+            target.hp=target.maxHp; float healthBefore=target.hp; HitEnemy(target,10,true);
+            check(target.hp==healthBefore-4,"Negative critical stat reduces ordinary critical damage");
+            target=SmokeArena(EnemyKind.Inverter,5); stats.Exchange(0,4,3); healthBefore=target.hp; HitEnemy(target,10,true);
+            check(target.hp==healthBefore-16,"Inverter takes increased damage from a negative critical stat");
+            stats=new ZeroStats(); stats.Exchange(4,0,3); healthBefore=target.hp; HitEnemy(target,10,true);
+            check(target.hp==healthBefore-4,"Inverter weakens positive critical damage");
+            target=SmokeArena(EnemyKind.RearGuard,5); target.facing=-1; healthBefore=target.hp;
+            HitEnemy(target,10,false,Vector2.right); check(target.hp==healthBefore,"Rear guard blocks frontal weapon hits");
+            HitEnemy(target,10,false,Vector2.left); check(target.hp==healthBefore-10,"Rear guard takes damage from behind");
+            player=target.pos+Vector2.left; target.timer=0; TickNormal(target,.01f); target.turnTimer=0; float facingBefore=target.facing; player=target.pos+Vector2.right;
+            TickNormal(target,.1f); check(target.facing==facingBefore,"Rear guard commits its facing during attack windup");
+            target.casting=false; TickNormal(target,.01f); check(target.facing==1,"Rear guard turns after its commitment");
+            yield return CaptureSmoke(folder,"11-rear-guard");
+            target=SmokeArena(EnemyKind.Inverter,5); yield return CaptureSmoke(folder,"12-inverter");
+
+            stats=new ZeroStats(); stats.Exchange(0,1,3); int sum=stats.Total; stats.Swap(0,1);
+            check(stats[0]==-1 && stats[1]==6 && stats.Total==sum,"Swap card exchanges exact values and preserves the sum");
+            stats=new ZeroStats(); stats.Exchange(0,1,9); check(stats.Total==10 && stats[0]==12 && stats[1]==-7,"Extreme exchange supports much larger zero-sum changes");
+            target=SmokeArena(EnemyKind.Human,2); pendingInvert=2; BeginRoom();
+            check(activeInvert==2 && CurrentMoveSpeed<0,"Invert card negates the chosen stat for the next combat");
+            ClearActors(); ClearRoom(); check(activeInvert==-1,"Round inversion expires after that combat");
+
             StartRun(); int bosses=0;
             for(int n=1;n<=LastRoom;n++)
             {
                 NextRoom(); check(phase==Phase.Route && routes.Length==3,"Map "+n+" presents three routes");
                 if(n==6 || n==8) yield return CaptureSmoke(folder,n==6?"05-mixed-route":"06-boss-route");
-                routeSelected=n%3; ChooseRoute(); int expected=currentMap.Total;
+                routeSelected=n%3; ChooseRoute();
+                if(n>1)
+                {
+                    check(phase==Phase.Trade && pendingTrade,"Map "+n+" reveals enemies before requiring its exchange");
+                    MapOffer lockedMap=currentMap; NextRoom(); ChooseRoute(); ApplyTrade();
+                    check(phase==Phase.Trade && currentMap==lockedMap,"Unselected exchange cannot be skipped or reroll the route");
+                    if(n==2) yield return CaptureSmoke(folder,"07-trade");
+                    selected=0; int total=stats.Total; ApplyTrade();
+                    check(stats.Total==total && !pendingTrade && phase==Phase.Combat,"Exchange preserves all five stats and enters the selected map");
+                }
+                int expected=currentMap.Total;
                 check(enemies.Count+spawnQueue.Count==expected,"Map "+n+" matches its card's enemy count");
                 if(ZeroContent.IsBossRoom(n)) { bosses++; check(enemies.Count==1 && enemies[0].kind==ZeroContent.BossForRoom(n),"Correct boss for map "+n); }
                 while(spawnQueue.Count>0) SpawnEnemy(spawnQueue.Dequeue(),new Vector2(7,0));
                 for(int i=enemies.Count-1;i>=0;i--) HitEnemy(enemies[i],100000);
                 if(n==1) { stats.Exchange(0,3,4); wallet=1000; }
                 int beforeWallet=wallet, coinValue=0; foreach(var c in coins) coinValue+=c.value;
-                ClearRoom(); check(phase==Phase.Trade && completedRooms==n,"Map "+n+" requires an exchange after clearing");
+                ClearRoom();
+                check(completedRooms==n && pendingTrade,"Cleared map "+n+" owes exactly one exchange");
                 if(n==1) check(wallet==Mathf.Max(0,beforeWallet+coinValue*stats[3]),"Clear auto-collection applies negative fortune to all remaining coins");
-                NextRoom(); check(phase==Phase.Trade,"Exchange cannot be skipped on map "+n);
-                if(n==1) yield return CaptureSmoke(folder,"07-trade");
-                selected=0; int total=stats.Total; ApplyTrade();
-                check(stats.Total==total && phase==(n==LastRoom?Phase.Victory:Phase.Camp),"Map "+n+" preserves stat total and advances correctly");
+                if(n<LastRoom)
+                {
+                    check(phase==Phase.Camp,"Cleared map "+n+" opens the shelter before the next route");
+                    int total=stats.Total; selected=0; ApplyTrade();
+                    check(phase==Phase.Camp && stats.Total==total,"No stat exchange before seeing the next encounter");
+                }
+                else
+                {
+                    check(phase==Phase.Trade,"Final clear still requires its last exchange");
+                    selected=0; int total=stats.Total; ApplyTrade();
+                    check(phase==Phase.Victory && stats.Total==total && !pendingTrade,"Final exchange returns from the dungeon");
+                }
             }
             check(bosses==5 && completedRooms==20 && phase==Phase.Victory,"Twenty-map campaign contains five bosses and ends after the final exchange");
             yield return CaptureSmoke(folder,"08-victory");
-            SmokeArena(EnemyKind.Human); hp=1; invulnerable=0; Hurt(50); check(phase==Phase.Dead,"Lethal damage opens the death screen");
+            SmokeArena(EnemyKind.Human); completedRooms=8; hp=1; invulnerable=0; Hurt(50); check(phase==Phase.Dead,"Lethal damage opens the death screen");
+            check(deathReward==3 && legacyPoints==3 && totalDeaths==1,"Death grants persistent legacy currency from progress");
+            float beforeMeta=StatValue(0); check(UpgradeMeta(0) && legacyPoints==2 && Mathf.Abs(StatValue(0)-beforeMeta-.1f)<.001f,"One legacy point permanently raises a base stat by 0.1");
             yield return CaptureSmoke(folder,"09-death");
-            StartRun(); check(hp==100 && wallet==90 && stats.Total==10 && owned.Count==2 && completedRooms==0 && petrified==0,"Restart resets health, stats, inventory, money and progress");
+            StartRun(); check(hp==100 && wallet==500 && stats.Total==10 && Mathf.Abs(StatValue(0)-3.1f)<.001f && owned.Count==2 && completedRooms==0 && petrified==0,"Restart resets the run while retaining permanent growth");
             help=true; yield return CaptureSmoke(folder,"10-controls");
             Application.logMessageReceived -= captureError;
             File.WriteAllLines(Path.Combine(folder,"runtime-checks.txt"),checks);
@@ -188,11 +261,12 @@ namespace ZeroHero
 
         Enemy SmokeArena(EnemyKind kind,int map=1)
         {
-            ClearActors(); phase=Phase.Combat; paused=help=false; room=map; stats=new ZeroStats(); hp=100; shields=0;
+            ClearActors(); pendingTrade=false; phase=Phase.Combat; paused=help=false; room=map; stats=new ZeroStats(); hp=100; shields=0;
             currentMap=ZeroContent.CreateOffers(map,new System.Random(12))[0]; BuildMap();
             player=new Vector2(-8,Floor+HeroHalf); velocity=Vector2.zero; aim=Vector2.right; jumps=0; grounded=true;
             petrified=dashTime=dropTimer=attackTimer=bombTimer=0; invulnerable=999; spawnTimer=99; roomBanner=0; noticeTime=0;
             activeWeapon=gunSlot=0; swordSlot=10; owned.Add(0); owned.Add(10); bossNotice="";
+            for(int i=0;i<gunAmmo.Length;i++) { gunAmmo[i]=ZeroContent.Weapons[i].magazine; gunReload[i]=0; }
             var target=SpawnEnemy(kind,new Vector2(6,0)); target.timer=99; return target;
         }
         IEnumerator CaptureSmoke(string folder,string name)

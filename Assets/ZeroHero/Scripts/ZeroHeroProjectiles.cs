@@ -4,7 +4,7 @@ namespace ZeroHero
 {
     public sealed partial class ZeroHeroGame
     {
-        void CreateShot(Vector2 pos,Vector2 velocity,int damage,bool hostile,ShotKind kind=ShotKind.Bullet,int pierce=1,float gravity=0)
+        void CreateShot(Vector2 pos,Vector2 velocity,int damage,bool hostile,ShotKind kind=ShotKind.Bullet,int pierce=1,float gravity=0,bool critical=false)
         {
             if(shots.Count>500) return;
             Color color=hostile ? ZeroHeroArt.Pink : damage<0 ? ZeroHeroArt.Gain : ZeroHeroArt.Gold;
@@ -12,7 +12,7 @@ namespace ZeroHero
             Vector2 scale=kind==ShotKind.Arrow?Vector2.one*.8f:kind==ShotKind.Snake?Vector2.one*.9f:kind==ShotKind.Fly?Vector2.one*.8f:kind==ShotKind.Meteor?Vector2.one*.65f:new Vector2(.34f,.13f);
             var sr=Sprite(hostile?"Enemy attack":"Bullet",sprite,(kind==ShotKind.Snake||kind==ShotKind.Fly)?Color.white:color,pos,scale,30);
             sr.transform.rotation=Quaternion.Euler(0,0,Mathf.Atan2(velocity.y,velocity.x)*Mathf.Rad2Deg);
-            shots.Add(new Shot { root=sr.transform,pos=pos,velocity=velocity,damage=damage,hostile=hostile,life=6,kind=kind,pierce=pierce,gravity=gravity });
+            shots.Add(new Shot { root=sr.transform,pos=pos,velocity=velocity,damage=damage,hostile=hostile,life=6,kind=kind,pierce=pierce,gravity=gravity,critical=critical });
         }
         void TickShots(float dt)
         {
@@ -32,7 +32,7 @@ namespace ZeroHero
                     {
                         var e=enemies[j];
                         if(!s.hit.Contains(e)&&SegmentDistance(e.pos,start,s.pos)<e.Radius+.12f)
-                        { s.hit.Add(e); HitEnemy(e,s.damage); s.pierce--; if(s.pierce<=0) { remove=true; break; } }
+                        { s.hit.Add(e); HitEnemy(e,s.damage,s.critical,s.velocity); s.pierce--; if(s.pierce<=0) { remove=true; break; } }
                     }
                 if(remove) RemoveShot(i);
             }

@@ -13,7 +13,7 @@ namespace ZeroHero
         sealed class Enemy
         {
             public Transform root;
-            public SpriteRenderer body, health;
+            public SpriteRenderer body, health, guard;
             public readonly List<Transform> wings = new List<Transform>();
             public readonly List<SpriteRenderer> flies = new List<SpriteRenderer>();
             public EnemyKind kind;
@@ -21,6 +21,7 @@ namespace ZeroHero
             public float hp, maxHp, timer, windup, flash, flyTime, jumpTimer;
             public int pattern, nextPattern;
             public bool casting;
+            public float facing = 1, turnTimer;
             public EnemyDef Def => ZeroContent.Enemies[(int)kind];
             public float Radius => Def.size * .43f;
             public bool Flying => kind == EnemyKind.Angel || kind == EnemyKind.Beelzebub || kind == EnemyKind.Heart;
@@ -31,7 +32,7 @@ namespace ZeroHero
             public Vector2 pos, velocity;
             public float life, gravity;
             public int damage, pierce;
-            public bool hostile;
+            public bool hostile, critical;
             public ShotKind kind;
             public readonly HashSet<Enemy> hit = new HashSet<Enemy>();
         }
@@ -61,6 +62,9 @@ namespace ZeroHero
         readonly Queue<EnemyKind> spawnQueue = new Queue<EnemyKind>();
         readonly HashSet<int> owned = new HashSet<int>();
         readonly ZeroTrade[] trades = new ZeroTrade[3];
+        readonly int[] metaLevels = new int[ZeroStats.Count];
+        readonly int[] gunAmmo = new int[10];
+        readonly float[] gunReload = new float[10];
         ZeroStats stats = new ZeroStats();
         MapOffer[] routes;
         MapOffer currentMap;
@@ -78,7 +82,9 @@ namespace ZeroHero
         string notice = "", bossNotice = "";
         int room = 1, completedRooms, wallet, kills, seed, best, selected = -1, routeSelected = -1, jumps;
         int lastUp = -1, lastDown = -1, lastAmount, shields, activeWeapon, gunSlot, swordSlot = 10, shopTab;
-        bool paused, muted, help, campHealed, campShield, autoAim, smokeMode, grounded;
+        int activeInvert = -1, pendingInvert = -1, legacyPoints, totalRuns, totalDeaths, totalVictories, lifetimeKills, lifetimeGold, deathReward;
+        bool pendingTrade;
+        bool paused, muted, help, campHealed, campShield, smokeMode, grounded;
         WeaponDef Weapon => ZeroContent.Weapons[activeWeapon];
         int Act => (room - 1) / 4;
 
@@ -110,7 +116,7 @@ namespace ZeroHero
             heldWeapon = Sprite("Weapon", art.weaponGun, Color.white, new Vector2(.53f,0), Vector2.one * .85f, 23, aimRoot);
             cursorRing = Sprite("Reticle", art.ring, ZeroHeroArt.Gold, Vector2.zero, Vector2.one * .3f, 65);
             audioSource = gameObject.AddComponent<AudioSource>(); audioSource.volume = .3f; MakeAudio();
-            best = PlayerPrefs.GetInt("ZeroHero.Sideview.Best",0); muted = PlayerPrefs.GetInt("ZeroHero.Muted",0) == 1;
+            LoadRecords(); muted = PlayerPrefs.GetInt("ZeroHero.Muted",0) == 1;
             currentMap = ZeroContent.CreateOffers(1,random)[0]; BuildMap(); player = new Vector2(-10,Floor + HeroHalf);
             smokeMode = Array.IndexOf(Environment.GetCommandLineArgs(),"--zero-smoke") >= 0;
             if (smokeMode) StartCoroutine(SmokeTest());
@@ -118,6 +124,19 @@ namespace ZeroHero
 
         static Color C(string hex) => ZeroHeroArt.Hex(hex);
         float Range(float min, float max) => min + (float)random.NextDouble() * (max-min);
+        float StatValue(int index)
+        {
+            float value = stats[index] + metaLevels[index] * .1f;
+            return activeInvert == index ? -value : value;
+        }
+        int CurrentDamage => Mathf.RoundToInt(Weapon.power * StatValue(0) / 3f);
+        int CurrentDamageTaken(int incoming) => Mathf.Max(1,Mathf.RoundToInt(incoming-StatValue(1)*2));
+        int CurrentHealing(int amount) => amount <= 0 ? 0 : Mathf.Max(0,Mathf.RoundToInt(amount+Mathf.Max(0,-StatValue(1))*2));
+        float CurrentMoveSpeed => StatValue(2)*1.6f;
+        float ReloadRate => StatValue(2) < 0 ? 0 : Mathf.Clamp(Mathf.Max(1,StatValue(2))/3f,1/3f,2.22f);
+        float ReloadSecondsLeft(int id) => gunReload[id] <= 0 ? 0 : ReloadRate <= 0 ? float.PositiveInfinity : gunReload[id]/ReloadRate;
+        int CurrentCriticalDamage(int damage,bool inverted)
+        { return Mathf.RoundToInt(damage*Mathf.Max(.1f,1+StatValue(4)*(inverted?-.2f:.2f))); }
         SpriteRenderer Sprite(string label, Sprite sprite, Color color, Vector2 pos, Vector2 scale, int order, Transform parent = null)
         {
             var go = new GameObject(label); go.transform.SetParent(parent == null ? world : parent,false);
@@ -127,9 +146,12 @@ namespace ZeroHero
 
         void StartRun()
         {
-            ClearActors(); stats = new ZeroStats(); hp = 100; wallet = 90; kills = completedRooms = 0; room = 1; shields = 0;
+            ClearActors(); stats = new ZeroStats(); hp = 100; wallet = 500; kills = completedRooms = 0; room = 1; shields = 0;
             seed = Environment.TickCount & int.MaxValue; random = new System.Random(seed); runTime = 0;
             owned.Clear(); owned.Add(0); owned.Add(10); gunSlot = activeWeapon = 0; swordSlot = 10; shopTab = 0;
+            for (int i = 0; i < gunAmmo.Length; i++) { gunAmmo[i] = ZeroContent.Weapons[i].magazine; gunReload[i] = 0; }
+            pendingTrade = false; routes = null; activeInvert = pendingInvert = -1; deathReward = 0;
+            if (!smokeMode) { totalRuns++; SaveRecords(); }
             lastUp = lastDown = -1; paused = help = campHealed = campShield = false; phase = Phase.Camp;
             currentMap = ZeroContent.CreateOffers(1,random)[0]; BuildMap(); player = new Vector2(-10,Floor + HeroHalf); velocity = Vector2.zero;
             petrified = dropTimer = attackTimer = dashTimer = dashTime = bombTimer = invulnerable = 0;
@@ -144,20 +166,22 @@ namespace ZeroHero
         void ChooseRoute()
         {
             if (phase != Phase.Route || routeSelected < 0 || routeSelected >= 3) return;
-            currentMap = routes[routeSelected]; BeginRoom();
+            currentMap = routes[routeSelected];
+            if (pendingTrade) { PrepareTrade(); phase = Phase.Trade; } else BeginRoom();
         }
         void BeginRoom()
         {
             ClearActors(); BuildMap(); phase = Phase.Combat; player = new Vector2(-10,Floor+HeroHalf); velocity = Vector2.zero;
             jumps = 0; grounded = true; aim = Vector2.right; petrified = dropTimer = 0;
+            activeInvert = pendingInvert; pendingInvert = -1;
             attackTimer = dashTimer = dashTime = bombTimer = 0; invulnerable = 1.3f; roomTime = 0; roomBanner = 2;
             bossNotice = ""; spawnTimer = .5f;
             for (int k = 0; k < currentMap.counts.Length; k++) for (int n = 0; n < currentMap.counts[k]; n++)
             {
-                if (k >= (int)EnemyKind.Medusa) SpawnEnemy((EnemyKind)k,new Vector2(8,0));
+                if (ZeroContent.Enemies[k].Boss) SpawnEnemy((EnemyKind)k,new Vector2(8,0));
                 else spawnQueue.Enqueue((EnemyKind)k);
             }
-            Notice(room == 1 ? "A/D 이동 · Space 2단 점프 · 클릭 공격 · 1 총 / 2 칼" : "");
+            Notice(room == 1 ? "WASD 공격 방향 · A/D 이동 · Space 2단 점프 · 클릭 공격" : activeInvert >= 0 ? ZeroStats.Name(activeInvert)+" ×−1 적용 중" : "");
         }
 
         void Update()
@@ -203,29 +227,25 @@ namespace ZeroHero
         void TickCombat(float dt)
         {
             runTime += dt; roomTime += dt; invulnerable -= dt; attackTimer -= dt; dashTimer -= dt; bombTimer -= dt; petrified -= dt; dropTimer -= dt;
+            TickReloads(dt);
             var kb = Keyboard.current; var mouse = Mouse.current;
             float input = kb == null ? 0 : (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1 : 0) - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1 : 0);
             if (kb != null)
             {
-                if (kb.qKey.wasPressedThisFrame) autoAim = !autoAim;
                 if (kb.digit1Key.wasPressedThisFrame) Equip(gunSlot);
                 if (kb.digit2Key.wasPressedThisFrame) Equip(swordSlot);
                 if (kb.tabKey.wasPressedThisFrame) Equip(Weapon.gun ? swordSlot : gunSlot);
+                Vector2 attackInput = new Vector2(input,(kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1 : 0)-(kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1 : 0));
+                if (attackInput.sqrMagnitude > .01f) aim = attackInput.normalized;
             }
-            Vector2 target = mouse != null ? (Vector2)cam.ScreenToWorldPoint(mouse.position.ReadValue()) : player + aim;
-            if (autoAim && enemies.Count > 0)
-            {
-                float closest = float.MaxValue;
-                foreach (var e in enemies) if ((e.pos-player).sqrMagnitude < closest) { closest = (e.pos-player).sqrMagnitude; target = e.pos; }
-            }
-            if ((target-player).sqrMagnitude > .02f) aim = (target-player).normalized;
-            cursorRing.transform.position = target; cursorRing.enabled = !autoAim;
+            cursorRing.enabled = false;
             if (petrified <= 0)
             {
-                if (kb != null && (kb.spaceKey.wasPressedThisFrame || kb.wKey.wasPressedThisFrame || kb.upArrowKey.wasPressedThisFrame)) TryJump(kb.sKey.isPressed || kb.downArrowKey.isPressed);
+                if (kb != null && kb.spaceKey.wasPressedThisFrame) TryJump(kb.sKey.isPressed || kb.downArrowKey.isPressed);
+                if (kb != null && kb.rKey.wasPressedThisFrame) BeginReload(activeWeapon,true);
                 if (kb != null && (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) && dashTimer <= 0)
-                { dashDirection = (input != 0 ? input : Mathf.Sign(aim.x)) * (stats[2] < 0 ? -1 : 1); dashTime = .16f; dashTimer = 1.35f; invulnerable = .28f; PlaySound(3); }
-                velocity.x = dashTime > 0 ? dashDirection * 18 : input * stats.MoveSpeed;
+                { dashDirection = (input != 0 ? input : Mathf.Sign(aim.x)) * (StatValue(2) < 0 ? -1 : 1); dashTime = .16f; dashTimer = 1.35f; invulnerable = .28f; PlaySound(3); }
+                velocity.x = dashTime > 0 ? dashDirection * 18 : input * CurrentMoveSpeed;
                 if (attackTimer <= 0 && ((mouse != null && mouse.leftButton.isPressed) || (kb != null && kb.jKey.isPressed))) Fire();
                 if (kb != null && kb.eKey.wasPressedThisFrame && bombTimer <= 0) Bomb();
             }
@@ -276,30 +296,41 @@ namespace ZeroHero
         {
             if (phase != Phase.Camp || id < 0 || id >= ZeroContent.Weapons.Length) return false;
             var w = ZeroContent.Weapons[id];
-            if (!owned.Contains(id)) { if (wallet < w.price) return false; wallet -= w.price; owned.Add(id); }
+            if (!owned.Contains(id)) { if (wallet < w.price) return false; wallet -= w.price; owned.Add(id); if (w.gun) { gunAmmo[id] = w.magazine; gunReload[id] = 0; } }
             Equip(id); PlaySound(6); return true;
         }
         bool BuySupply(bool shield)
         {
             if (phase != Phase.Camp) return false;
-            int price = shield ? 18 : 24;
+            int price = shield ? 350 : 500;
             if (wallet < price || (shield ? campShield : campHealed || hp >= 100)) return false;
             wallet -= price;
-            if (shield) { shields++; campShield = true; } else { hp = Mathf.Min(100,hp+40); campHealed = true; }
+            if (shield) { shields++; campShield = true; } else { HealPlayer(40); campHealed = true; }
             PlaySound(4); return true;
         }
 
         void Fire()
         {
             if (phase != Phase.Combat || petrified > 0 || attackTimer > 0) return;
-            attackTimer = 1/Weapon.rate; int damage = Weapon.Damage(stats);
+            if (Weapon.gun && Weapon.magazine > 0)
+            {
+                if (gunReload[activeWeapon] > 0) return;
+                if (gunAmmo[activeWeapon] <= 0) { BeginReload(activeWeapon,true); attackTimer = .15f; return; }
+            }
+            attackTimer = 1/Weapon.rate; int damage = CurrentDamage;
+            bool critical = random.NextDouble() < .2;
             if (Weapon.gun)
             {
                 for (int i = 0; i < Weapon.pellets; i++)
                 {
                     float a = Mathf.Atan2(aim.y,aim.x) + (i-(Weapon.pellets-1)*.5f)*.095f;
                     var direction = new Vector2(Mathf.Cos(a),Mathf.Sin(a));
-                    CreateShot(player+direction*.65f,direction*Weapon.bulletSpeed,damage,false,ShotKind.Bullet,Weapon.pierce);
+                    CreateShot(player+direction*.65f,direction*Weapon.bulletSpeed,damage,false,ShotKind.Bullet,Weapon.pierce,0,critical);
+                }
+                if (Weapon.magazine > 0)
+                {
+                    gunAmmo[activeWeapon]--;
+                    if (gunAmmo[activeWeapon] == 0) BeginReload(activeWeapon,false);
                 }
             }
             else
@@ -311,9 +342,36 @@ namespace ZeroHero
                     AddEffect(art.square,player+new Vector2(Mathf.Cos(a),Mathf.Sin(a))*Weapon.reach*.72f,damage < 0 ? ZeroHeroArt.Gain : ZeroHeroArt.Gold,.15f,.15f,Vector2.zero,0);
                 }
                 for (int i = enemies.Count-1; i >= 0; i--)
-                { var e = enemies[i]; Vector2 delta = e.pos-player; if (delta.magnitude <= Weapon.reach+e.Radius && Vector2.Dot(delta.normalized,aim) > .15f) HitEnemy(e,damage); }
+                { var e = enemies[i]; Vector2 delta = e.pos-player; if (delta.magnitude <= Weapon.reach+e.Radius && Vector2.Dot(delta.normalized,aim) > .15f) HitEnemy(e,damage,critical,aim); }
             }
             PlaySound(0);
+        }
+        bool BeginReload(int id, bool showBlocked)
+        {
+            if (id < 0 || id >= gunAmmo.Length) return false;
+            var weapon = ZeroContent.Weapons[id];
+            if (!weapon.gun || weapon.magazine < 0 || gunAmmo[id] >= weapon.magazine || gunReload[id] > 0) return false;
+            if (StatValue(2) < 0)
+            {
+                if (showBlocked) Notice("이동 속도가 음수라 장전할 수 없습니다.");
+                return false;
+            }
+            gunReload[id] = weapon.reloadTime;
+            return true;
+        }
+        void TickReloads(float dt)
+        {
+            float rate = ReloadRate;
+            if (rate <= 0) return;
+            for (int id = 0; id < gunAmmo.Length; id++)
+            {
+                var weapon = ZeroContent.Weapons[id];
+                if (!owned.Contains(id) || weapon.magazine < 0) continue;
+                if (gunAmmo[id] <= 0 && gunReload[id] <= 0) gunReload[id] = weapon.reloadTime;
+                if (gunReload[id] <= 0) continue;
+                gunReload[id] -= dt*rate;
+                if (gunReload[id] <= 0) { gunReload[id] = 0; gunAmmo[id] = weapon.magazine; }
+            }
         }
         void Bomb()
         {
@@ -324,20 +382,23 @@ namespace ZeroHero
             for (int i = shots.Count-1; i >= 0; i--) if (shots[i].hostile && Vector2.Distance(player,shots[i].pos) < 5) RemoveShot(i);
         }
 
-        void HitEnemy(Enemy e, int signedDamage)
+        void HitEnemy(Enemy e, int signedDamage, bool critical = false, Vector2? direction = null)
         {
+            if (e.kind == EnemyKind.RearGuard && direction.HasValue && direction.Value.x * e.facing <= 0)
+            { Float(e.pos+Vector2.up,"방어",ZeroHeroArt.Gold); return; }
+            if (critical) signedDamage = CurrentCriticalDamage(signedDamage,e.kind == EnemyKind.Inverter);
             int damage = ZeroContent.ResolveDamage(e.kind,signedDamage);
             e.hp = ZeroStats.ApplyAttack(e.hp,e.maxHp,damage); e.flash = .12f;
-            Float(e.pos+Vector2.up*e.Radius,damage < 0 ? "+"+-damage : damage.ToString(),damage < 0 ? ZeroHeroArt.Gain : e.kind == EnemyKind.Undead && signedDamage < 0 ? ZeroHeroArt.Gold : Color.white);
+            Float(e.pos+Vector2.up*e.Radius,(critical ? "치명타 " : "") + (damage < 0 ? "+"+-damage : damage.ToString()),damage < 0 ? ZeroHeroArt.Gain : e.kind == EnemyKind.Undead && signedDamage < 0 ? ZeroHeroArt.Gold : Color.white);
             Burst(e.pos,damage < 0 ? ZeroHeroArt.Gain : ZeroHeroArt.Pink,4); PlaySound(1);
             if (e.hp > 0) return;
-            kills++; Burst(e.pos,e.Def.Boss ? ZeroHeroArt.Gold : ZeroHeroArt.Pink,18);
+            kills++; lifetimeKills++; Burst(e.pos,e.Def.Boss ? ZeroHeroArt.Gold : ZeroHeroArt.Pink,18);
             int number = e.Def.Boss ? 12 : e.kind == EnemyKind.Giant ? 5 : 2;
             for (int i = 0; i < number; i++)
             {
                 Vector2 p = e.pos+new Vector2(Range(-.5f,.5f),Range(-.2f,.4f));
                 var sr = Sprite("Coin",art.coin,Color.white,p,Vector2.one*.7f,15);
-                coins.Add(new Pickup { root = sr.transform,pos = p,value = e.Def.Boss ? 5 : 3 });
+                coins.Add(new Pickup { root = sr.transform,pos = p,value = e.Def.Boss ? 100 : e.kind == EnemyKind.Giant ? 40 : 25 });
             }
             Destroy(e.root.gameObject); enemies.Remove(e);
         }
@@ -346,8 +407,8 @@ namespace ZeroHero
             if (invulnerable > 0 || phase != Phase.Combat) return false;
             invulnerable = .75f; shake = .15f;
             if (shields > 0) { shields--; Float(player+Vector2.up,"보호막",ZeroHeroArt.Gain); PlaySound(3); return false; }
-            int damage = stats.DamageTaken(incoming); hp = Mathf.Max(0,hp-damage); Float(player+Vector2.up,"−"+damage,ZeroHeroArt.Pink); PlaySound(5);
-            if (hp <= 0) { phase = Phase.Dead; paused = false; SaveBest(completedRooms); cursorRing.enabled = false; }
+            int damage = CurrentDamageTaken(incoming); hp = Mathf.Max(0,hp-damage); Float(player+Vector2.up,"−"+damage,ZeroHeroArt.Pink); PlaySound(5);
+            if (hp <= 0) { phase = Phase.Dead; paused = false; RecordDeath(); cursorRing.enabled = false; }
             return true;
         }
 
@@ -363,25 +424,78 @@ namespace ZeroHero
             }
         }
         void Collect(Pickup p)
-        { int before = wallet; wallet = ZeroStats.CollectCoins(wallet,p.value,stats); Float(p.pos,Signed(wallet-before)+" G",stats[3]<0 ? ZeroHeroArt.Pink : ZeroHeroArt.Gold); PlaySound(6); }
+        {
+            int before = wallet, change = Mathf.RoundToInt(p.value*StatValue(3)); wallet = Mathf.Max(0,wallet+change);
+            if (wallet > before) lifetimeGold += wallet-before;
+            Float(p.pos,Signed(wallet-before)+" G",StatValue(3)<0 ? ZeroHeroArt.Pink : ZeroHeroArt.Gold); PlaySound(6);
+        }
+
+        void HealPlayer(int amount)
+        {
+            float before = hp; hp = Mathf.Min(100,hp+CurrentHealing(amount));
+            if (hp > before) Float(player+Vector2.up,"회복 +"+(hp-before).ToString("0"),ZeroHeroArt.Gain);
+        }
 
         void ClearRoom()
         {
             if (phase != Phase.Combat) return;
             foreach (var p in coins) { Collect(p); Destroy(p.root.gameObject); } coins.Clear();
-            ClearProjectiles(); completedRooms = room; SaveBest(completedRooms); hp = Mathf.Min(100,hp+12);
-            phase = Phase.Trade; selected = -1; cursorRing.enabled = false; PlaySound(4);
-            var pairs = new HashSet<int>();
-            for (int i = 0; i < 3; i++) { int up,down; do { up = random.Next(4); down = random.Next(4); } while (up == down || !pairs.Add(up*4+down)); trades[i] = new ZeroTrade(up,down,2+random.Next(3)); }
+            ClearProjectiles(); completedRooms = room; activeInvert = -1; SaveBest(completedRooms); HealPlayer(12);
+            pendingTrade = true; campHealed = campShield = false; selected = -1; cursorRing.enabled = false; PlaySound(4);
+            if (completedRooms == LastRoom) { PrepareTrade(); phase = Phase.Trade; }
+            else phase = Phase.Camp;
+        }
+        void PrepareTrade()
+        {
+            selected = -1;
+            int up = random.Next(ZeroStats.Count), down;
+            do down = random.Next(ZeroStats.Count); while (up == down);
+            trades[0] = new ZeroTrade(up,down,2+random.Next(3));
+            up = random.Next(ZeroStats.Count); do down = random.Next(ZeroStats.Count); while (up == down);
+            trades[1] = random.Next(2)==0 ? new ZeroTrade(up,down,0,TradeKind.Swap) : new ZeroTrade(up,down,6+random.Next(5),TradeKind.Extreme);
+            if (completedRooms < LastRoom) trades[2] = new ZeroTrade(random.Next(ZeroStats.Count),-1,0,TradeKind.InvertNext);
+            else trades[2] = new ZeroTrade(up,down,8,TradeKind.Extreme);
         }
         void ApplyTrade()
         {
             if (phase != Phase.Trade || selected < 0 || selected >= 3) return;
-            var t = trades[selected]; stats.Exchange(t.up,t.down,t.amount); lastUp = t.up; lastDown = t.down; lastAmount = t.amount;
-            phase = completedRooms == LastRoom ? Phase.Victory : Phase.Camp; campHealed = campShield = false; petrified = 0; PlaySound(4);
+            var t = trades[selected];
+            if (t.kind == TradeKind.Swap) stats.Swap(t.up,t.down);
+            else if (t.kind == TradeKind.InvertNext) pendingInvert = t.up;
+            else stats.Exchange(t.up,t.down,t.amount);
+            lastUp = t.up; lastDown = t.down; lastAmount = t.amount;
+            pendingTrade = false; petrified = 0; PlaySound(4);
+            if (completedRooms == LastRoom)
+            { phase = Phase.Victory; if (!smokeMode) { totalVictories++; SaveRecords(); } }
+            else BeginRoom();
         }
-        void ReturnToTitle() { ClearActors(); phase = Phase.Title; paused = help = false; }
-        void SaveBest(int n) { if (smokeMode) return; best = Mathf.Max(best,n); PlayerPrefs.SetInt("ZeroHero.Sideview.Best",best); PlayerPrefs.Save(); }
+        void ReturnToTitle() { ClearActors(); SaveRecords(); phase = Phase.Title; paused = help = false; }
+        void SaveBest(int n) { if (smokeMode) return; best = Mathf.Max(best,n); SaveRecords(); }
+        void LoadRecords()
+        {
+            best=PlayerPrefs.GetInt("ZeroHero.Sideview.Best",0); legacyPoints=PlayerPrefs.GetInt("ZeroHero.Legacy.Points",0);
+            totalRuns=PlayerPrefs.GetInt("ZeroHero.Record.Runs",0); totalDeaths=PlayerPrefs.GetInt("ZeroHero.Record.Deaths",0);
+            totalVictories=PlayerPrefs.GetInt("ZeroHero.Record.Victories",0); lifetimeKills=PlayerPrefs.GetInt("ZeroHero.Record.Kills",0); lifetimeGold=PlayerPrefs.GetInt("ZeroHero.Record.Gold",0);
+            for(int i=0;i<ZeroStats.Count;i++) metaLevels[i]=PlayerPrefs.GetInt("ZeroHero.Legacy.Stat."+i,0);
+        }
+        void SaveRecords()
+        {
+            if(smokeMode) return;
+            PlayerPrefs.SetInt("ZeroHero.Sideview.Best",best); PlayerPrefs.SetInt("ZeroHero.Legacy.Points",legacyPoints);
+            PlayerPrefs.SetInt("ZeroHero.Record.Runs",totalRuns); PlayerPrefs.SetInt("ZeroHero.Record.Deaths",totalDeaths);
+            PlayerPrefs.SetInt("ZeroHero.Record.Victories",totalVictories); PlayerPrefs.SetInt("ZeroHero.Record.Kills",lifetimeKills); PlayerPrefs.SetInt("ZeroHero.Record.Gold",lifetimeGold);
+            for(int i=0;i<ZeroStats.Count;i++) PlayerPrefs.SetInt("ZeroHero.Legacy.Stat."+i,metaLevels[i]);
+            PlayerPrefs.Save();
+        }
+        void RecordDeath()
+        {
+            SaveBest(completedRooms); deathReward=1+completedRooms/4; legacyPoints+=deathReward; totalDeaths++; SaveRecords();
+        }
+        bool UpgradeMeta(int index)
+        {
+            if(phase!=Phase.Dead || index<0 || index>=ZeroStats.Count || legacyPoints<=0) return false;
+            legacyPoints--; metaLevels[index]++; SaveRecords(); return true;
+        }
         void ToggleSound() { muted = !muted; PlayerPrefs.SetInt("ZeroHero.Muted",muted?1:0); PlayerPrefs.Save(); }
         void Notice(string text) { notice = text; noticeTime = 4; }
         void Float(Vector2 pos, string text, Color color) { floating.Add(new Floating { pos=pos,text=text,color=color,life=1 }); }
@@ -407,6 +521,7 @@ namespace ZeroHero
             foreach (var p in coins) Destroy(p.root.gameObject); coins.Clear(); foreach (var e in effects) Destroy(e.sprite.gameObject); effects.Clear(); floating.Clear();
         }
         void OnApplicationFocus(bool focus) { if (!focus && phase == Phase.Combat && !smokeMode) paused = true; }
+        void OnApplicationQuit() { SaveRecords(); }
         void OnDestroy()
         {
             ClearActors(); if (world != null) Destroy(world.gameObject); if (scenery != null) Destroy(scenery.gameObject); art?.Dispose();

@@ -1,0 +1,289 @@
+PASS Enter opens the starting shop through the Input System
+PASS Starting money and both basic weapons
+PASS Starting magazine: 낡은 권총
+PASS Starting magazine: 리볼버
+PASS Starting magazine: 기관 단총
+PASS Starting magazine: 산탄총
+PASS Starting magazine: 사냥 소총
+PASS Starting magazine: 돌격 소총
+PASS Starting magazine: 중 기관총
+PASS Starting magazine: 저격총
+PASS Starting magazine: 쌍열 산탄총
+PASS Starting magazine: 전자포
+PASS Purchase deducts the new price and equips the sword
+PASS Equipping an owned weapon does not charge again
+PASS Insufficient funds reject a purchase
+PASS Weapon can be purchased: 낡은 권총
+PASS Weapon can be purchased: 리볼버
+PASS Weapon can be purchased: 기관 단총
+PASS Weapon can be purchased: 산탄총
+PASS Weapon can be purchased: 사냥 소총
+PASS Weapon can be purchased: 돌격 소총
+PASS Weapon can be purchased: 중 기관총
+PASS Weapon can be purchased: 저격총
+PASS Weapon can be purchased: 쌍열 산탄총
+PASS Weapon can be purchased: 전자포
+PASS Weapon can be purchased: 녹슨 칼
+PASS Weapon can be purchased: 단검
+PASS Weapon can be purchased: 군용검
+PASS Weapon can be purchased: 레이피어
+PASS Weapon can be purchased: 커틀러스
+PASS Weapon can be purchased: 장검
+PASS Weapon can be purchased: 대검
+PASS Weapon can be purchased: 곡도
+PASS Weapon can be purchased: 처형검
+PASS Weapon can be purchased: 흑철검
+PASS All twenty weapons are owned without changing stat total
+PASS Potion costs 500 and heals once per shop
+PASS Shield costs 350 and is limited to once per shop
+PASS Shop opens exactly three route cards
+PASS A route must be selected before entering
+PASS Chosen map controls the actual encounter roster
+PASS Weapons cannot be bought during combat
+PASS D moves and aims right at positive speed
+PASS Negative speed reverses movement but keeps D attack direction right
+PASS W sets attack direction upward without the mouse
+PASS Space jumps through the Input System
+PASS Second airborne jump is available
+PASS Third airborne jump is rejected
+PASS Gravity lands on the floor
+PASS One-way platform catches falling bodies
+PASS S plus jump drops through a platform
+PASS Negative attack heals an ordinary enemy
+PASS Ordinary healing is capped at maximum health
+PASS Undead take twice the negative attack as damage
+PASS Negative defense increases incoming damage
+PASS Negative fortune removes money
+PASS Wallet cannot become negative
+PASS Bomb can kill with negative attack and starts its cooldown
+PASS Shotgun fires five pellets while spending one shell
+PASS Attack interval prevents early repeat fire
+PASS Sniper spends one of five rounds and retains its speed and penetration
+PASS Empty double-barrel begins its fast reload automatically
+PASS Double-barrel reload refills both shells
+PASS R starts a manual reload through the Input System
+PASS Negative movement speed freezes an active reload
+PASS Negative movement speed cannot start a reload
+PASS Zero movement speed can start a reload
+PASS Zero movement speed makes reload three times slower
+PASS Higher movement speed accelerates reload progress
+PASS Swept piercing bullet hits two separate targets
+PASS Sword cuts several enemies in its forward arc
+PASS Orcs enter in simultaneous groups of four
+PASS Goblins enter in simultaneous groups of six
+PASS Elf actually shoots an arcing hostile arrow
+PASS Elf retreats when the player is too close
+PASS Beam warning causes no damage or petrification
+PASS Active Medusa beam damages and petrifies
+PASS Petrification blocks attacks and jumps
+PASS Petrification expires without requiring input
+PASS Shield prevents both beam damage and petrification
+PASS Medusa pattern 0 creates a gameplay action
+PASS Medusa pattern 1 creates a gameplay action
+PASS Medusa pattern 2 creates a gameplay action
+PASS Medusa pattern 3 creates a gameplay action
+PASS Angel pattern 0 creates a gameplay action
+PASS Angel pattern 1 creates a gameplay action
+PASS Angel pattern 2 creates a gameplay action
+PASS Angel pattern 3 creates a gameplay action
+PASS Angel has six eye-covered wings
+PASS Heart pattern 0 creates a gameplay action
+PASS Heart pattern 1 creates a gameplay action
+PASS Heart pattern 2 creates a gameplay action
+PASS Heart summons three undead
+PASS Heart pattern 3 creates a gameplay action
+PASS Beelzebub pattern 0 creates a gameplay action
+PASS Beelzebub transforms into an attacking fly swarm
+PASS Fly transformation remains damageable
+PASS Beelzebub returns from the fly swarm
+PASS Beelzebub pattern 1 creates a gameplay action
+PASS Beelzebub pattern 2 creates a gameplay action
+PASS Beelzebub pattern 3 creates a gameplay action
+PASS DemonKing pattern 0 creates a gameplay action
+PASS DemonKing pattern 1 creates a gameplay action
+PASS DemonKing pattern 2 creates a gameplay action
+PASS DemonKing pattern 3 creates a gameplay action
+PASS DemonKing pattern 4 creates a gameplay action
+PASS Pause freezes combat and the run timer
+PASS Defense -3 adds six to received healing
+PASS Amplified healing respects maximum health
+PASS Zero healing cannot create free recovery
+PASS Negative critical stat reduces ordinary critical damage
+PASS Inverter takes increased damage from a negative critical stat
+PASS Inverter weakens positive critical damage
+PASS Rear guard blocks frontal weapon hits
+PASS Rear guard takes damage from behind
+PASS Rear guard commits its facing during attack windup
+PASS Rear guard turns after its commitment
+PASS Swap card exchanges exact values and preserves the sum
+PASS Extreme exchange supports much larger zero-sum changes
+PASS Invert card negates the chosen stat for the next combat
+PASS Round inversion expires after that combat
+PASS Map 1 presents three routes
+PASS Map 1 matches its card's enemy count
+PASS Cleared map 1 owes exactly one exchange
+PASS Clear auto-collection applies negative fortune to all remaining coins
+PASS Cleared map 1 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 2 presents three routes
+PASS Map 2 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 2 matches its card's enemy count
+PASS Cleared map 2 owes exactly one exchange
+PASS Cleared map 2 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 3 presents three routes
+PASS Map 3 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 3 matches its card's enemy count
+PASS Cleared map 3 owes exactly one exchange
+PASS Cleared map 3 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 4 presents three routes
+PASS Map 4 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 4 matches its card's enemy count
+PASS Correct boss for map 4
+PASS Cleared map 4 owes exactly one exchange
+PASS Cleared map 4 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 5 presents three routes
+PASS Map 5 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 5 matches its card's enemy count
+PASS Cleared map 5 owes exactly one exchange
+PASS Cleared map 5 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 6 presents three routes
+PASS Map 6 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 6 matches its card's enemy count
+PASS Cleared map 6 owes exactly one exchange
+PASS Cleared map 6 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 7 presents three routes
+PASS Map 7 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 7 matches its card's enemy count
+PASS Cleared map 7 owes exactly one exchange
+PASS Cleared map 7 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 8 presents three routes
+PASS Map 8 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 8 matches its card's enemy count
+PASS Correct boss for map 8
+PASS Cleared map 8 owes exactly one exchange
+PASS Cleared map 8 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 9 presents three routes
+PASS Map 9 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 9 matches its card's enemy count
+PASS Cleared map 9 owes exactly one exchange
+PASS Cleared map 9 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 10 presents three routes
+PASS Map 10 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 10 matches its card's enemy count
+PASS Cleared map 10 owes exactly one exchange
+PASS Cleared map 10 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 11 presents three routes
+PASS Map 11 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 11 matches its card's enemy count
+PASS Cleared map 11 owes exactly one exchange
+PASS Cleared map 11 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 12 presents three routes
+PASS Map 12 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 12 matches its card's enemy count
+PASS Correct boss for map 12
+PASS Cleared map 12 owes exactly one exchange
+PASS Cleared map 12 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 13 presents three routes
+PASS Map 13 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 13 matches its card's enemy count
+PASS Cleared map 13 owes exactly one exchange
+PASS Cleared map 13 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 14 presents three routes
+PASS Map 14 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 14 matches its card's enemy count
+PASS Cleared map 14 owes exactly one exchange
+PASS Cleared map 14 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 15 presents three routes
+PASS Map 15 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 15 matches its card's enemy count
+PASS Cleared map 15 owes exactly one exchange
+PASS Cleared map 15 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 16 presents three routes
+PASS Map 16 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 16 matches its card's enemy count
+PASS Correct boss for map 16
+PASS Cleared map 16 owes exactly one exchange
+PASS Cleared map 16 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 17 presents three routes
+PASS Map 17 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 17 matches its card's enemy count
+PASS Cleared map 17 owes exactly one exchange
+PASS Cleared map 17 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 18 presents three routes
+PASS Map 18 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 18 matches its card's enemy count
+PASS Cleared map 18 owes exactly one exchange
+PASS Cleared map 18 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 19 presents three routes
+PASS Map 19 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 19 matches its card's enemy count
+PASS Cleared map 19 owes exactly one exchange
+PASS Cleared map 19 opens the shelter before the next route
+PASS No stat exchange before seeing the next encounter
+PASS Map 20 presents three routes
+PASS Map 20 reveals enemies before requiring its exchange
+PASS Unselected exchange cannot be skipped or reroll the route
+PASS Exchange preserves all five stats and enters the selected map
+PASS Map 20 matches its card's enemy count
+PASS Correct boss for map 20
+PASS Cleared map 20 owes exactly one exchange
+PASS Final clear still requires its last exchange
+PASS Final exchange returns from the dungeon
+PASS Twenty-map campaign contains five bosses and ends after the final exchange
+PASS Lethal damage opens the death screen
+PASS Death grants persistent legacy currency from progress
+PASS One legacy point permanently raises a base stat by 0.1
+PASS Restart resets the run while retaining permanent growth

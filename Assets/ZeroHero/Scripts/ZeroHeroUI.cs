@@ -72,6 +72,11 @@ namespace ZeroHero
         void Image(Sprite sprite, Rect rect, Color color)
         { GUI.color = color; GUI.DrawTexture(rect, sprite.texture, ScaleMode.ScaleToFit); GUI.color = Color.white; }
         static string Signed(int value) => value > 0 ? "+" + value : value < 0 ? "−" + -value : "0";
+        static string Signed(float value)
+        {
+            if (Mathf.Abs(value) < .001f) return "0";
+            return (value > 0 ? "+" : "−") + Mathf.Abs(value).ToString("0.0");
+        }
         static string TimeText(float time) => ((int)time / 60).ToString("00") + ":" + ((int)time % 60).ToString("00");
 
         void DrawTitle()
@@ -86,6 +91,7 @@ namespace ZeroHero
             if (Button("조작법", new Rect(136, 687, 310, 57))) help = true;
             Text("Enter  시작", 468, 623, 230, 29, 16, mutedColor);
             Text(best > 0 ? "최고 기록  " + best + " / 20 맵" : "일반 맵 3개 → 보스전 · 총 5구역", 136, 816, 690, 32, 17, mutedColor);
+            Text("도전 "+totalRuns+" · 사망 "+totalDeaths+" · 승리 "+totalVictories+" · 처치 "+lifetimeKills,136,854,850,28,15,mutedColor);
             if (Button(muted ? "소리: 꺼짐" : "소리: 켜짐", new Rect(1295, 808, 190, 44))) ToggleSound();
         }
 
@@ -143,14 +149,24 @@ namespace ZeroHero
             if (index == 0) rows = new[] { "......##", ".....##.", "....##..", "#..##...", ".###....", "..##....", ".#.##...", "#......." };
             else if (index == 1) rows = new[] { ".######.", ".##..##.", ".#....#.", ".#....#.", ".##..##.", "..#..#..", "...##...", "........" };
             else if (index == 2) rows = new[] { "..###...", "..###...", "..###...", "..###...", "..#####.", ".######.", ".######.", "........" };
+            else if(index==4) rows = new[] { "...##...", "#..##..#", ".######.", "..####..", ".######.", "#..##..#", "...##...", "........" };
             else rows = new[] { "..####..", ".##..##.", "##.##.##", "##.#..##", "##..#.##", "##.##.##", ".##..##.", "..####.." };
             for (int r = 0; r < rows.Length; r++) for (int c = 0; c < rows[r].Length; c++)
                 if (rows[r][c] == '#') Fill(new Rect(x + c * scale, y + r * scale, scale, scale), ink);
         }
 
+        string RouteAdvice()
+        {
+            if(currentMap.counts[(int)EnemyKind.Undead]>0) return "음수 공격은 언데드에게 2배 피해. 다른 적은 회복됩니다.";
+            if(currentMap.counts[(int)EnemyKind.Inverter]>0) return "반전술사는 음수 치명타에 약합니다. 다른 적은 치명타 피해가 줄어듭니다.";
+            if(currentMap.counts[(int)EnemyKind.RearGuard]>0) return "방패병은 뒤에서 공격. 이동이 반전되어도 조준 방향은 유지됩니다.";
+            return currentMap.detail;
+        }
+
         void DrawTrade()
         {
-            OpenSheet("능력치 교환", room + "번째 맵 클리어. 하나를 골라야 다음으로 넘어갑니다.");
+            OpenSheet("능력치 교환",completedRooms==LastRoom?"마지막 교환을 마치면 던전에서 귀환합니다.":"다음: "+currentMap.name+" · "+currentMap.Roster);
+            if(completedRooms<LastRoom) Text("적 특성: "+RouteAdvice(),263,278,1077,30,16,ZeroHeroArt.Gold);
             for (int i = 0; i < 3; i++)
             {
                 var t = trades[i]; float y = 317 + i * 113;
@@ -160,18 +176,27 @@ namespace ZeroHero
                 Fill(new Rect(260, y + 98, 1080, 1), active ? ZeroHeroArt.Gold : lineColor);
                 if (active) Marker(272, y + 27, ZeroHeroArt.Gold);
                 Text((i + 1).ToString(), 302, y + 16, 58, 40, 27, active ? ZeroHeroArt.Gold : mutedColor);
-                StatIcon(t.up, 381, y + 25, ZeroHeroArt.Gain);
-                Text(ZeroStats.Name(t.up), 428, y + 17, 165, 38, 23, textColor);
-                Text("+" + t.amount, 599, y + 13, 80, 40, 30, ZeroHeroArt.Gain, bold: true);
-                Text(Signed(stats[t.up]) + " → " + Signed(stats[t.up] + t.amount), 428, y + 62, 258, 29, 16, mutedColor);
-                StatIcon(t.down, 780, y + 25, ZeroHeroArt.Pink);
-                Text(ZeroStats.Name(t.down), 826, y + 17, 170, 38, 23, textColor);
-                Text("−" + t.amount, 1005, y + 13, 85, 40, 30, ZeroHeroArt.Pink, bold: true);
-                Text(Signed(stats[t.down]) + " → " + Signed(stats[t.down] - t.amount), 1122, y + 20, 187, 35, 20, mutedColor, TextAnchor.UpperRight);
-                Text(StatDetail(t.down, stats[t.down] - t.amount), 826, y + 62, 477, 28, 16, stats[t.down] - t.amount <= 0 ? ZeroHeroArt.Pink : mutedColor);
+                if (t.kind == TradeKind.InvertNext)
+                {
+                    StatIcon(t.up,381,y+25,ZeroHeroArt.Pink); Text(ZeroStats.Name(t.up),428,y+17,255,38,23,textColor);
+                    Text("× −1",700,y+13,170,42,30,ZeroHeroArt.Pink,bold:true);
+                    Text("다음 전투 동안만 실제 수치의 부호를 반전",875,y+21,420,35,19,mutedColor);
+                    Text(Signed(stats[t.up]+metaLevels[t.up]*.1f)+" → "+Signed(-(stats[t.up]+metaLevels[t.up]*.1f)),428,y+62,420,29,16,mutedColor);
+                }
+                else
+                {
+                    bool swap=t.kind==TradeKind.Swap;
+                    StatIcon(t.up,381,y+25,swap?ZeroHeroArt.Gold:ZeroHeroArt.Gain); Text(ZeroStats.Name(t.up),428,y+17,165,38,23,textColor);
+                    Text(swap?"교환":"+"+t.amount,599,y+13,105,40,swap?22:30,swap?ZeroHeroArt.Gold:ZeroHeroArt.Gain,bold:true);
+                    Text(Signed(stats[t.up])+" → "+Signed(swap?stats[t.down]:stats[t.up]+t.amount),428,y+62,258,29,16,mutedColor);
+                    StatIcon(t.down,780,y+25,swap?ZeroHeroArt.Gold:ZeroHeroArt.Pink); Text(ZeroStats.Name(t.down),826,y+17,170,38,23,textColor);
+                    Text(swap?"교환":"−"+t.amount,1005,y+13,105,40,swap?22:30,swap?ZeroHeroArt.Gold:ZeroHeroArt.Pink,bold:true);
+                    Text(Signed(stats[t.down])+" → "+Signed(swap?stats[t.up]:stats[t.down]-t.amount),1122,y+20,187,35,20,mutedColor,TextAnchor.UpperRight);
+                    Text(swap?"두 능력치의 현재 값을 맞바꿈":t.kind==TradeKind.Extreme?"극단 교환 · 합계 변화 0":StatDetail(t.down,stats[t.down]-t.amount),826,y+62,477,28,16,t.kind==TradeKind.Extreme?ZeroHeroArt.Pink:mutedColor);
+                }
                 if (GUI.Button(rect, GUIContent.none, GUIStyle.none)) { selected = i; PlaySound(6); }
             }
-            Text(selected < 0 ? "1 / 2 / 3  선택" : "+" + trades[selected].amount + " − " + trades[selected].amount + " = 0", 264, 700, 620, 40, 22, mutedColor);
+            Text(selected < 0 ? "1 / 2 / 3  선택" : trades[selected].kind==TradeKind.InvertNext?"기본 합계 유지 · 다음 전투 한정":trades[selected].kind==TradeKind.Swap?"두 값 스왑 · 합계 변화 0":"+"+trades[selected].amount+" − "+trades[selected].amount+" = 0", 264, 700, 720, 40, 22, mutedColor);
             if (Button("확정  [Enter]", new Rect(1006, 688, 334, 57), true, selected >= 0)) ApplyTrade();
         }
 

@@ -48,7 +48,7 @@ namespace ZeroHero.Editor
             var rng = new System.Random(12);
             for (int i = 0; i < 10000; i++)
             {
-                int up = rng.Next(4), down = (up + 1 + rng.Next(3)) % 4, amount = rng.Next(1, 5);
+                int up = rng.Next(ZeroStats.Count), down = (up + 1 + rng.Next(ZeroStats.Count - 1)) % ZeroStats.Count, amount = rng.Next(1, 5);
                 stats.Exchange(up, down, amount); assert(stats.Total == 10, "Total after randomized exchange " + i);
             }
             stats = new ZeroStats(); stats.Exchange(1, 0, 5);
@@ -70,6 +70,7 @@ namespace ZeroHero.Editor
             rejected = false; try { stats.Exchange(0, 1, 0); } catch (ArgumentException) { rejected = true; }
             assert(rejected, "Reject zero exchange");
             assert(ZeroContent.Weapons.Length == 20, "Twenty weapons");
+            assert(ZeroContent.Weapons[9].price == 10000 && ZeroContent.Weapons[19].price == 9500, "Late weapon prices reach about ten thousand gold");
             stats = new ZeroStats();
             var weaponNames = new System.Collections.Generic.HashSet<string>();
             for (int i = 0; i < ZeroContent.Weapons.Length; i++)
@@ -81,6 +82,17 @@ namespace ZeroHero.Editor
                 assert(weapon.gun ? weapon.bulletSpeed > 0 : weapon.reach > 0, "Weapon range or projectile speed " + i);
                 assert(weapon.Damage(stats) == weapon.power, "Base attack reproduces listed weapon damage " + i);
             }
+            int[] magazines = { 8,6,30,10,12,25,100,5,2,-1 };
+            for (int i = 0; i < 10; i++)
+            {
+                var gun = ZeroContent.Weapons[i];
+                assert(gun.magazine == magazines[i], "Gun magazine size " + gun.name);
+                assert(i == 9 ? gun.reloadTime == 0 : gun.reloadTime > 0, "Gun reload tuning " + gun.name);
+            }
+            assert(ZeroContent.Weapons[6].reloadTime > ZeroContent.Weapons[7].reloadTime, "Heavy machine gun reload is the slowest");
+            for (int i = 0; i < 10; i++) if (i != 6 && i != 7) assert(ZeroContent.Weapons[7].reloadTime > ZeroContent.Weapons[i].reloadTime, "Sniper reload is second slowest " + i);
+            for (int i = 0; i < 9; i++) if (i != 8) assert(ZeroContent.Weapons[8].reloadTime < ZeroContent.Weapons[i].reloadTime, "Double-barrel reload is fastest " + i);
+            assert(ZeroContent.Weapons[9].magazine < 0, "Electron cannon has an infinite magazine");
             assert(ZeroContent.ResolveDamage(EnemyKind.Undead, -13) == 26, "Undead reverse healing at double strength");
             assert(ZeroContent.ResolveDamage(EnemyKind.Undead, 13) == 13, "Undead take ordinary positive damage");
             assert(ZeroContent.ResolveDamage(EnemyKind.Human, -13) == -13, "Other enemies retain healing");
@@ -106,6 +118,23 @@ namespace ZeroHero.Editor
                         }
                     }
                 }
+            stats = new ZeroStats(); stats.Exchange(0,1,5);
+            assert(stats.HealingReceived(12)==18 && stats.HealingReceived(40)==46, "Negative defense amplifies healing consistently");
+            assert(stats.HealingReceived(0)==0, "No free healing from zero");
+            stats = new ZeroStats(); stats.Exchange(0,4,3);
+            assert(stats.CriticalDamage(100)==40 && stats.CriticalDamage(100,true)==160, "Negative critical inversion");
+            stats = new ZeroStats(); stats.Exchange(4,0,3);
+            assert(stats.CriticalDamage(100)==160 && stats.CriticalDamage(100,true)==40, "Positive critical inversion");
+            stats.Exchange(0,4,20);
+            assert(stats.CriticalDamage(100)==10, "Critical multiplier has a damage floor");
+            stats = new ZeroStats(); stats.Exchange(0,1,4); int attackBefore=stats[0], defenseBefore=stats[1]; stats.Swap(0,1);
+            assert(stats[0]==defenseBefore && stats[1]==attackBefore && stats.Total==10,"Swap preserves zero-sum total");
+            stats.Exchange(0,1,10); assert(stats.Total==10,"Extreme exchange preserves zero-sum total");
+            assert(!ZeroContent.Enemies[(int)EnemyKind.RearGuard].Boss && !ZeroContent.Enemies[(int)EnemyKind.Inverter].Boss, "New inversion enemies are ordinary enemies");
+            bool foundGuard=false, foundInverter=false;
+            for(int seed=0;seed<50;seed++) foreach(var offer in ZeroContent.CreateOffers(6,new System.Random(seed)))
+            { foundGuard |= offer.counts[(int)EnemyKind.RearGuard]>0; foundInverter |= offer.counts[(int)EnemyKind.Inverter]>0; }
+            assert(foundGuard && foundInverter,"Both inversion enemies appear in route cards");
             Directory.CreateDirectory("Verification"); File.WriteAllText("Verification/rules-result.txt", "PASS: " + count + " rule assertions.");
             Debug.Log("ZERO_RULES_SUCCESS " + count);
         }

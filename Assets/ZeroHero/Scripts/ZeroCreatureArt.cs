@@ -5,7 +5,7 @@ namespace ZeroHero
 {
     public sealed partial class ZeroHeroArt
     {
-        public readonly Sprite[] creatures = new Sprite[11];
+        public readonly Sprite[] creatures = new Sprite[13];
         public Sprite snake, wing, fly, arrow, weaponGun, weaponBlade;
 
         void BuildContentArt(Dictionary<char, Color> p)
@@ -55,6 +55,14 @@ namespace ZeroHero
             creatures[10] = Pixels(new[] {
                 "..g..........g..","..gg........gg..","...gg..gg..gg...","...#rrrrrrrr#...","...rffrrrrffr...","...rrfrrrrfrr...",
                 "....rrllllrr....","..###rrrrrr###..",".rrrr#rrrr#rrrr.","rrrrr#rrrr#rrrrr","rrr###ssss###rrr",".rr#ssssssss#rr.","...#ssssssss#...","...#ssssssss#...","...#sss..sss#...","...#sss..sss#...","...####..####...","................"
+            },p);
+            creatures[11] = Pixels(new[] {
+                ".....ssssss.....","....ssssssss....","....sl#ll#ls....",".....llllll.....","....ssssssss....","...ssggssggss...",
+                "...lssssssssl...","...lssssssssl...","....ssssssss....",".....ss..ss.....",".....ss..ss.....","....###..###...."
+            },p);
+            creatures[12] = Pixels(new[] {
+                ".......a........","......aaa.......",".....aaaaa......","....aaaaaaa.....",".....e##ee......","......eeee......",
+                "....aaaaaaaa....","...aaggaaggaa...","...aagaaagaag...","....aaaaaaaa....","...aaaaaaaaaa...","..aaaaaaaaaaaa.."
             },p);
             snake = Pixels(new[] { "....oooo","...oo#oo","oooo....","onnnn...","...nnnn.","........" },p);
             fly = Pixels(new[] { "ww....ww","www..www","..nffn..","..nnnn..",".n.nn.n.","..n..n.." },p);

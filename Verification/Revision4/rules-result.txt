@@ -1,0 +1,1 @@
+PASS: 31525 rule assertions.
