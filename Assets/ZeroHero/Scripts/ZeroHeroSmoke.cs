@@ -111,10 +111,11 @@ namespace ZeroHero
                 InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
                 check(gunReload[0]>0,"R starts a manual reload through the Input System");
             }
+            yield return CaptureSmoke(folder,"13-reloading");
             stats=new ZeroStats(); stats.Exchange(0,2,5); gunAmmo[0]=0; gunReload[0]=ZeroContent.Weapons[0].reloadTime; float pausedReload=gunReload[0];
             TickReloads(1); check(gunReload[0]==pausedReload && gunAmmo[0]==0,"Negative movement speed freezes an active reload");
             gunReload[0]=0; check(!BeginReload(0,false),"Negative movement speed cannot start a reload");
-            yield return CaptureSmoke(folder,"13-reload-blocked");
+            yield return CaptureSmoke(folder,"14-reload-blocked");
             stats=new ZeroStats(); stats.Exchange(0,2,3); check(BeginReload(0,false),"Zero movement speed can start a reload");
             float zeroSeconds=ReloadSecondsLeft(0); check(zeroSeconds>ZeroContent.Weapons[0].reloadTime*2.9f,"Zero movement speed makes reload three times slower");
             gunReload[0]=ZeroContent.Weapons[0].reloadTime; stats=new ZeroStats(); stats.Exchange(2,1,3); TickReloads(.5f);

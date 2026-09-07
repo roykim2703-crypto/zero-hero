@@ -15,7 +15,7 @@ namespace ZeroHero
             }
             Text(Mathf.CeilToInt(hp)+"/100",398,21,170,37,24,textColor,bold:true);
             Text((Act+1)+"구역  ·  "+(ZeroContent.IsBossRoom(room)?"보스전":((room-1)%4+1)+" / 3"),613,22,374,40,27,textColor,TextAnchor.MiddleCenter,true);
-            Text((Weapon.gun?AmmoStatus(activeWeapon)+"  ·  ":"")+room+" / 20 맵",615,73,420,28,15,Weapon.gun&&Weapon.magazine>0&&StatValue(2)<0?ZeroHeroArt.Pink:mutedColor,TextAnchor.MiddleCenter);
+            Text(room+" / 20 맵",650,73,300,28,16,mutedColor,TextAnchor.MiddleCenter);
             StatIcon(3,1120,27,ZeroHeroArt.Gold); Text(wallet+" G",1164,21,175,40,27,ZeroHeroArt.Gold);
             if(Button(phase==Phase.Combat?"일시정지":"조작법",new Rect(1352,22,194,45))) { if(phase==Phase.Combat) paused=true; else help=true; }
             Text((Weapon.gun?"[1] ":"[2] ")+Weapon.name+"   피해 "+Signed(CurrentDamage),54,75,560,30,18,CurrentDamage<0?ZeroHeroArt.Gain:ZeroHeroArt.Gold);
@@ -44,15 +44,6 @@ namespace ZeroHero
             if(index==4) return "확률 20% · 배율 × "+Mathf.Max(.1f,1+value*.2f).ToString("0.0");
             return value<0?"동전 가치 × "+-value+" 손실":"동전 가치 × "+value;
         }
-        string AmmoStatus(int id)
-        {
-            var weapon=ZeroContent.Weapons[id];
-            if(weapon.magazine<0) return "탄창 ∞";
-            string ammo="탄창 "+gunAmmo[id]+" / "+weapon.magazine;
-            if(StatValue(2)<0 && (gunReload[id]>0 || gunAmmo[id]<weapon.magazine)) return ammo+" · 장전 불가";
-            if(gunReload[id]>0) return ammo+" · 장전 "+ReloadSecondsLeft(id).ToString("0.0")+"초";
-            return ammo+" · [R] 장전";
-        }
         void DrawCombat()
         {
             Text(currentMap.name,55,136,500,33,22,textColor,bold:true);
@@ -73,7 +64,27 @@ namespace ZeroHero
             }
             if(petrified>0) Text("석화 "+petrified.ToString("0.0")+"초",590,286,420,55,33,C("CDD1C7"),TextAnchor.MiddleCenter,true);
             if(noticeTime>0) Text(notice,303,744,994,34,17,ZeroHeroArt.Gold,TextAnchor.MiddleCenter);
+            DrawAmmoPanel();
             Ability("Shift","회피",dashTimer,1.35f,57,723); Ability("E","폭탄",bombTimer,6,1344,723);
+        }
+        void DrawAmmoPanel()
+        {
+            if(!Weapon.gun) return;
+            var panel=new Rect(1256,615,290,91); Fill(panel,new Color(.075f,.08f,.065f,.96f));
+            Text(Weapon.name,1272,625,151,26,14,mutedColor);
+            if(Weapon.magazine<0)
+            {
+                Text("∞",1418,620,111,43,34,ZeroHeroArt.Gold,TextAnchor.UpperRight,true);
+                Text("무한 탄창",1272,668,257,25,16,textColor,TextAnchor.UpperRight);
+                return;
+            }
+            bool blocked=StatValue(2)<0&&(gunReload[activeWeapon]>0||gunAmmo[activeWeapon]<Weapon.magazine);
+            Text(gunAmmo[activeWeapon]+" / "+Weapon.magazine,1398,619,131,43,31,blocked?ZeroHeroArt.Pink:textColor,TextAnchor.UpperRight,true);
+            string state=blocked?"장전 불가":gunReload[activeWeapon]>0?"장전 중  "+ReloadSecondsLeft(activeWeapon).ToString("0.0")+"초":"[R] 수동 장전";
+            Text(state,1272,664,257,25,16,blocked?ZeroHeroArt.Pink:gunReload[activeWeapon]>0?ZeroHeroArt.Gold:mutedColor,TextAnchor.UpperRight,true);
+            Fill(new Rect(1272,696,257,3),C("363A2E"));
+            float progress=gunReload[activeWeapon]>0?1-Mathf.Clamp01(gunReload[activeWeapon]/Weapon.reloadTime):gunAmmo[activeWeapon]/(float)Weapon.magazine;
+            Fill(new Rect(1272,696,257*progress,3),blocked?ZeroHeroArt.Pink:ZeroHeroArt.Gold);
         }
         void Ability(string key,string name,float cooldown,float max,float x,float y)
         {
