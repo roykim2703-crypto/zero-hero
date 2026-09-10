@@ -28,11 +28,16 @@ namespace ZeroHero
             else
             {
                 DrawHUD();
-                if (phase == Phase.Combat) DrawCombat();
+                bool pageEnabled=GUI.enabled; if(shopOpen) GUI.enabled=false;
+                if (phase == Phase.Combat || phase == Phase.RoomClear) DrawCombat();
+                if (phase == Phase.RoomClear) DrawRoomClear();
                 if (phase == Phase.Trade) DrawTrade();
                 if (phase == Phase.Camp) DrawCamp();
                 if (phase == Phase.Route) DrawRoute();
                 if (phase == Phase.Dead || phase == Phase.Victory) DrawEnd();
+                GUI.enabled=pageEnabled;
+                if (!shopOpen && (phase == Phase.Route || phase == Phase.Trade)) DrawShopShortcut();
+                if (shopOpen) DrawCamp();
             }
             GUI.enabled = true;
             if (paused && !help) DrawPause();
@@ -90,6 +95,8 @@ namespace ZeroHero
             if (Button("시작", new Rect(136, 606, 310, 61), true)) StartRun();
             if (Button("조작법", new Rect(136, 687, 310, 57))) help = true;
             Text("Enter  시작", 468, 623, 230, 29, 16, mutedColor);
+            float permanent=0; for(int i=0;i<ZeroStats.Count;i++) permanent+=metaLevels[i]*.1f;
+            Text("영구 성장 +"+permanent.ToString("0.0")+" · 보유 잔재 "+legacyPoints,136,778,690,28,16,ZeroHeroArt.Gold);
             Text(best > 0 ? "최고 기록  " + best + " / 20 맵" : "일반 맵 3개 → 보스전 · 총 5구역", 136, 816, 690, 32, 17, mutedColor);
             Text("도전 "+totalRuns+" · 사망 "+totalDeaths+" · 승리 "+totalVictories+" · 처치 "+lifetimeKills,136,854,850,28,15,mutedColor);
             if (Button(muted ? "소리: 꺼짐" : "소리: 켜짐", new Rect(1295, 808, 190, 44))) ToggleSound();
@@ -155,6 +162,17 @@ namespace ZeroHero
                 if (rows[r][c] == '#') Fill(new Rect(x + c * scale, y + r * scale, scale, scale), ink);
         }
 
+        void DrawShopShortcut()
+        {
+            var rect = new Rect(1372,704,128,55);
+            if (Button("상점",rect,true)) { shopOpen=true; PlaySound(6); }
+            Color ink=ZeroHeroArt.Gold;
+            Fill(new Rect(rect.x+15,rect.y+18,19,15),ink);
+            Fill(new Rect(rect.x+12,rect.y+13,25,5),ink);
+            Fill(new Rect(rect.x+17,rect.y+8,15,5),ink);
+            Fill(new Rect(rect.x+18,rect.y+23,4,10),panelColor);
+        }
+
         string RouteAdvice()
         {
             if(currentMap.counts[(int)EnemyKind.Undead]>0) return "음수 공격은 언데드에게 2배 피해. 다른 적은 회복됩니다.";
@@ -181,7 +199,7 @@ namespace ZeroHero
                     StatIcon(t.up,381,y+25,ZeroHeroArt.Pink); Text(ZeroStats.Name(t.up),428,y+17,255,38,23,textColor);
                     Text("× −1",700,y+13,170,42,30,ZeroHeroArt.Pink,bold:true);
                     Text("다음 전투 동안만 실제 수치의 부호를 반전",875,y+21,420,35,19,mutedColor);
-                    Text(Signed(stats[t.up]+metaLevels[t.up]*.1f)+" → "+Signed(-(stats[t.up]+metaLevels[t.up]*.1f)),428,y+62,420,29,16,mutedColor);
+                    Text(Signed(StatValue(t.up))+" → "+Signed(-StatValue(t.up)),428,y+62,420,29,16,mutedColor);
                 }
                 else
                 {

@@ -33,22 +33,31 @@ namespace ZeroHero
                 check(phase==Phase.Camp,"Enter opens the starting shop through the Input System");
             }
             else { StartRun(); check(false,"Keyboard device exists"); }
-            check(wallet==500 && owned.Count==2 && activeWeapon==0,"Starting money and both basic weapons");
+            check(wallet==ZeroContent.StartingGold && owned.Count==2 && activeWeapon==10 && gunSlot==0 && swordSlot==10,"Starting money, both basic weapons, and the rusty sword equipped");
             int[] expectedMagazines={8,6,30,10,12,25,100,5,2,-1};
             for(int i=0;i<expectedMagazines.Length;i++) check(gunAmmo[i]==expectedMagazines[i],"Starting magazine: "+ZeroContent.Weapons[i].name);
-            check(BuyWeapon(11) && wallet==0 && swordSlot==11,"Purchase deducts the new price and equips the sword");
+            check(!BuyWeapon(11) && wallet==ZeroContent.StartingGold,"Paid weapons require enough gold");
+            int firstMapGold=Mathf.RoundToInt(ZeroContent.RawCoinReward(ZeroContent.CreateOffers(1,new System.Random(12))[0],1)*ZeroStats.CoinRate(new ZeroStats()[3]));
+            wallet=firstMapGold; check(!BuyWeapon(11) && wallet==firstMapGold,"First-map baseline income cannot buy the cheapest paid weapon");
+            wallet=ZeroContent.Weapons[11].price; check(BuyWeapon(11) && wallet==0 && swordSlot==11,"Gold and price alone control a paid purchase");
             check(BuyWeapon(11) && wallet==0,"Equipping an owned weapon does not charge again");
             check(!BuyWeapon(9) && wallet==0,"Insufficient funds reject a purchase");
+            wallet=2000; check(BuyWeapon(9) && wallet==0 && gunSlot==9,"A saved-up player can skip directly to the final weapon");
             wallet=100000;
             foreach(var w in ZeroContent.Weapons) check(BuyWeapon(w.id),"Weapon can be purchased: "+w.name);
             check(owned.Count==20 && stats.Total==10,"All twenty weapons are owned without changing stat total");
-            StartRun(); yield return CaptureSmoke(folder,"02-shop-guns");
+            StartRun(); shopTab=0; yield return CaptureSmoke(folder,"02-shop-guns");
             shopTab=1; yield return CaptureSmoke(folder,"03-shop-swords");
             wallet=1000; hp=40; check(BuySupply(false) && hp==80 && wallet==500 && !BuySupply(false),"Potion costs 500 and heals once per shop");
             check(BuySupply(true) && wallet==150 && shields==1 && !BuySupply(true),"Shield costs 350 and is limited to once per shop");
+            StartRun(); wallet=1000; float attackBeforeItem=StatValue(0);
+            check(BuyStatItem(0) && BuyStatItem(1) && BuyStatItem(2) && wallet==250,"Three stat items fill the three-slot bag");
+            check(!BuyStatItem(3) && wallet==250,"A full bag rejects another stat item without charging");
+            check(UseBagItem(0) && Mathf.Abs(StatValue(0)-attackBeforeItem-1)<.001f && bagItems[0]<0,"Using a bag slot grants its run-long stat bonus and empties the slot");
             StartRun(); NextRoom();
             check(phase==Phase.Route && routes.Length==3,"Shop opens exactly three route cards");
             ChooseRoute(); check(phase==Phase.Route,"A route must be selected before entering");
+            shopOpen=true; wallet=StatItemPrice; check(BuyStatItem(4) && wallet==0,"The shop remains usable from the route screen"); shopOpen=false;
             yield return CaptureSmoke(folder,"04-first-route");
             routeSelected=1; ChooseRoute();
             check(currentMap==routes[1] && spawnQueue.Count==6,"Chosen map controls the actual encounter roster");
@@ -77,9 +86,13 @@ namespace ZeroHero
             var body=new Vector2(12,2); var motion=Vector2.zero;
             for(int i=0;i<200;i++) MoveBody(ref body,ref motion,HeroHalf,.36f,.02f);
             check(Mathf.Abs(body.y-(Floor+HeroHalf))<.001f && motion.y==0,"Gravity lands on the floor");
-            var platform=platforms[0]; body=new Vector2(platform.center.x,platform.yMax+2); motion=Vector2.zero;
+            var platform=platforms[0]; body=new Vector2(platform.rect.center.x,platform.rect.yMax+2); motion=Vector2.zero;
             for(int i=0;i<100;i++) MoveBody(ref body,ref motion,HeroHalf,.36f,.02f);
-            check(Mathf.Abs(body.y-(platform.yMax+HeroHalf))<.001f,"One-way platform catches falling bodies");
+            check(Mathf.Abs(body.y-(platform.rect.yMax+HeroHalf))<.001f,"One-way platform catches falling bodies");
+            player=body; velocity=Vector2.zero; MoveBody(ref player,ref velocity,HeroHalf,.36f,.02f,false,true);
+            check(platform.collapse>0,"A platform starts its collapse countdown when the player stands on it");
+            TickPlatforms(.71f); check(!platform.active && platform.visuals.TrueForAll(v=>!v.enabled),"A stepped-on platform disappears after its warning");
+            TickPlatforms(2.76f); check(platform.active && platform.visuals.TrueForAll(v=>v.enabled),"A collapsed platform returns and becomes solid again");
             player=body; velocity=Vector2.zero; TryJump(true); MoveBody(ref player,ref velocity,HeroHalf,.36f,.1f,dropTimer>0);
             check(player.y<body.y,"S plus jump drops through a platform");
 
@@ -91,7 +104,7 @@ namespace ZeroHero
             stats.Exchange(0,1,5); hp=100; invulnerable=0; Hurt(10);
             check(hp==84,"Negative defense increases incoming damage");
             stats=new ZeroStats(); stats.Exchange(0,3,5); wallet=10;
-            Collect(new Pickup { pos=player,value=2 }); check(wallet==4,"Negative fortune removes money");
+            Collect(new Pickup { pos=player,value=2 }); check(wallet==7,"Negative fortune removes money at the reduced rate");
             Collect(new Pickup { pos=player,value=5 }); check(wallet==0,"Wallet cannot become negative");
 
             target=SmokeArena(EnemyKind.Human); target.hp=42; player=new Vector2(0,Floor+HeroHalf); target.pos=new Vector2(2,player.y); target.root.position=target.pos;
@@ -128,6 +141,32 @@ namespace ZeroHero
             var second=SpawnEnemy(EnemyKind.Goblin,new Vector2(1.6f,0)); second.hp=10; Equip(10); aim=Vector2.right; attackTimer=0; Fire();
             check(enemies.Count==0,"Sword cuts several enemies in its forward arc");
 
+            target=SmokeArena(EnemyKind.Human); player=new Vector2(0,Floor+HeroHalf); aim=Vector2.right; owned.Add(11); Equip(11);
+            target.pos=player+new Vector2(.8f,1); target.root.position=target.pos; float swordHealth=target.hp; Fire();
+            check(target.hp==swordHealth,"Dagger thrust does not hit targets outside its narrow line");
+            target.pos=player+Vector2.right*1.1f; target.root.position=target.pos; attackTimer=0; Fire();
+            check(target.hp<swordHealth,"Dagger thrust hits a close target directly ahead");
+
+            target=SmokeArena(EnemyKind.Human); player=new Vector2(0,Floor+HeroHalf); target.pos=player+Vector2.right*3.7f; target.root.position=target.pos;
+            owned.Add(13); Equip(13); aim=Vector2.right; swordHealth=target.hp; Fire();
+            check(target.hp<swordHealth,"Rapier thrust reaches enemies four metres away");
+
+            target=SmokeArena(EnemyKind.Human); player=new Vector2(0,Floor+HeroHalf); target.pos=player+Vector2.left; target.root.position=target.pos; target.hp=target.maxHp=500;
+            owned.Add(14); Equip(14); aim=Vector2.right; swordCombo[4]=0; swordHealth=target.hp;
+            for(int i=0;i<3;i++) { attackTimer=0; Fire(); }
+            check(target.hp==swordHealth,"Cutlass first three combo attacks stay directed forward");
+            attackTimer=0; Fire(); check(target.hp<swordHealth && swordCombo[4]==0,"Cutlass fourth combo attack circles behind and resets the chain");
+
+            target=SmokeArena(EnemyKind.Human); player=new Vector2(0,Floor+HeroHalf); owned.Add(16); Equip(16); aim=Vector2.right; swordCombo[6]=0;
+            attackTimer=0; Fire(); attackTimer=0; Fire(); float greatswordStart=player.x; attackTimer=0; Fire();
+            check(player.x>greatswordStart && swordCombo[6]==0,"Greatsword third combo attack spins and advances");
+
+            SmokeArena(EnemyKind.Human); owned.Add(17); Equip(17); aim=Vector2.right; int effectCount=effects.Count; Fire();
+            check(effects.Count-effectCount>=45,"Curved sword creates layered arcs, a ring, and sparks");
+
+            SmokeArena(EnemyKind.Human); owned.Add(19); Equip(19); aim=Vector2.right; Fire();
+            check(shots.FindAll(s=>s.kind==ShotKind.BlackIron&&!s.hostile).Count==3,"Black iron sword launches three ranged shards with its swing");
+
             SmokeArena(EnemyKind.Human); ClearActors(); for(int i=0;i<12;i++) spawnQueue.Enqueue(EnemyKind.Orc); spawnTimer=0; TickCombat(.01f);
             check(enemies.Count==4 && spawnQueue.Count==8,"Orcs enter in simultaneous groups of four");
             ClearActors(); for(int i=0;i<18;i++) spawnQueue.Enqueue(EnemyKind.Goblin); spawnTimer=0; TickCombat(.01f);
@@ -147,6 +186,30 @@ namespace ZeroHero
             hp=100; shields=1; invulnerable=0; AddBeam(player-Vector2.right*5,Vector2.right,0,10,true); TickHazards(.01f);
             check(hp==100 && petrified<=0 && shields==0,"Shield prevents both beam damage and petrification");
 
+            target=SmokeArena(EnemyKind.Heart,12);
+            check(target.invulnerable && target.heartSummons==1 && enemies.FindAll(e=>e.summoner==target).Count==3,"Heart starts at full health with an invulnerable three-minion wave");
+            initial=target.hp; HitEnemy(target,100); check(target.hp==initial,"Heart ignores damage while summoned minions live");
+            int bloodShots=shots.Count; TickHeartShield(target,.31f);
+            check(shots.Count>bloodShots && shots.Exists(s=>s.kind==ShotKind.Blood&&s.gravity>0),"Shielded heart sprays a falling blood bullet barrage");
+            for(int i=enemies.Count-1;i>=0;i--) if(enemies[i].summoner==target) HitEnemy(enemies[i],100000);
+            TickBoss(target,.01f); check(!target.invulnerable,"Heart loses invulnerability when its summoned wave dies");
+            HitEnemy(target,100000);
+            var heartMinions=enemies.FindAll(e=>e.summoner==target);
+            check(target.invulnerable && target.heartSummons==2 && Mathf.Abs(target.hp-target.maxHp*2/3f)<.01f && heartMinions.Count==5 && heartMinions.TrueForAll(e=>e.strength>=1.35f),"Heart clamps at two-thirds health and summons a larger stronger wave");
+            for(int i=enemies.Count-1;i>=0;i--) if(enemies[i].summoner==target) HitEnemy(enemies[i],100000);
+            TickBoss(target,.01f); HitEnemy(target,100000); heartMinions=enemies.FindAll(e=>e.summoner==target);
+            check(target.invulnerable && target.heartSummons==3 && Mathf.Abs(target.hp-target.maxHp/3f)<.01f && heartMinions.Count==7 && heartMinions.TrueForAll(e=>e.strength>=1.7f),"Heart clamps at one-third health and summons its largest strongest wave");
+            for(int i=enemies.Count-1;i>=0;i--) if(enemies[i].summoner==target) HitEnemy(enemies[i],100000);
+            TickBoss(target,.01f); HitEnemy(target,100000); check(!enemies.Contains(target),"Heart can die after all three summon waves are defeated");
+
+            target=SmokeArena(EnemyKind.Heart,12); ClearProjectiles(); target.invulnerable=false; target.nextPattern=0; StartBossPattern(target);
+            check(hazards.Exists(h=>h.size.x>=29 && h.damage>0),"Heart warns a damaging full-screen horizontal attack");
+            ExecuteBossPattern(target); check(shots.FindAll(s=>s.kind==ShotKind.Blood&&s.gravity>0).Count>=12,"Heart horizontal attack throws falling blood from both sides");
+            ClearProjectiles(); target.nextPattern=2; StartBossPattern(target); ExecuteBossPattern(target);
+            check(hazards.FindAll(h=>h.size.y>10).Count==7 && shots.FindAll(s=>s.kind==ShotKind.Blood&&s.velocity.y<0).Count==7,"Heart vertical attack marks seven columns and rains blood");
+            ClearProjectiles(); AddHeartBloodPool(0,12); float poolWidth=hazards.Find(h=>h.blood).size.x; AddHeartBloodPool(.2f,14);
+            check(hazards.Exists(h=>h.blood&&h.size.x>poolWidth&&h.life>=45),"Repeated heart attacks accumulate wider long-lived damaging blood pools");
+
             for(int boss=0;boss<5;boss++)
             {
                 var kind=(EnemyKind)((int)EnemyKind.Medusa+boss);
@@ -162,7 +225,6 @@ namespace ZeroHero
                         TickBoss(target,3.5f); TickBoss(target,.02f);
                         check(target.body.sprite==art.creatures[(int)kind] && target.flies.TrueForAll(f=>!f.enabled),"Beelzebub returns from the fly swarm");
                     }
-                    if(kind==EnemyKind.Heart && pattern==2) check(enemies.FindAll(e=>e.kind==EnemyKind.Undead).Count==3,"Heart summons three undead");
                 }
                 target=SmokeArena(kind,(boss+1)*4); target.nextPattern=0; StartBossPattern(target);
                 if(kind==EnemyKind.Angel) check(target.wings.Count==6,"Angel has six eye-covered wings");
@@ -206,33 +268,53 @@ namespace ZeroHero
             stats=new ZeroStats(); stats.Exchange(0,1,9); check(stats.Total==10 && stats[0]==12 && stats[1]==-7,"Extreme exchange supports much larger zero-sum changes");
             target=SmokeArena(EnemyKind.Human,2); pendingInvert=2; BeginRoom();
             check(activeInvert==2 && CurrentMoveSpeed<0,"Invert card negates the chosen stat for the next combat");
-            ClearActors(); ClearRoom(); check(activeInvert==-1,"Round inversion expires after that combat");
+            ClearActors(); BeginRoomClear();
+            check(phase==Phase.RoomClear && !roomClearRevealed,"Clearing an encounter keeps the combat scene before the result appears");
+            Vector2 clearStart=player; TickRoomClearMovement(.1f,1,false,false,false);
+            check(Mathf.Abs(player.x-clearStart.x)>.01f,"The player can keep moving during the clear countdown");
+            int clearWallet=wallet; var clearCoinSprite=Sprite("Clear Coin",art.coin,Color.white,player,Vector2.one*.7f,15);
+            coins.Add(new Pickup { root=clearCoinSprite.transform,pos=player,value=5 }); TickRoomClearMovement(.01f,0,false,false,false);
+            check(coins.Count==0 && wallet==clearWallet+5,"A final-enemy coin remains collectible during the clear countdown");
+            TickRoomClear(RoomClearRevealDelay*.5f); check(!roomClearRevealed && phase==Phase.RoomClear,"Clear result waits before appearing");
+            TickRoomClear(RoomClearRevealDelay*.6f); check(roomClearRevealed && phase==Phase.RoomClear,"Clear result appears while the combat scene remains");
+            TickRoomClear(RoomClearHoldDuration); check(phase==Phase.Camp && activeInvert==-1,"Clear result advances after its hold and expires round inversion");
 
             StartRun(); int bosses=0;
             for(int n=1;n<=LastRoom;n++)
             {
-                NextRoom(); check(phase==Phase.Route && routes.Length==3,"Map "+n+" presents three routes");
+                NextRoom(); check(phase==Phase.Route && routes.Length==(ZeroContent.IsBossRoom(n)?1:3),"Map "+n+" presents the correct route count");
                 if(n==6 || n==8) yield return CaptureSmoke(folder,n==6?"05-mixed-route":"06-boss-route");
-                routeSelected=n%3; ChooseRoute();
+                routeSelected=n%routes.Length; ChooseRoute();
                 if(n>1)
                 {
                     check(phase==Phase.Trade && pendingTrade,"Map "+n+" reveals enemies before requiring its exchange");
                     MapOffer lockedMap=currentMap; NextRoom(); ChooseRoute(); ApplyTrade();
                     check(phase==Phase.Trade && currentMap==lockedMap,"Unselected exchange cannot be skipped or reroll the route");
+                    if(n==2) { shopOpen=true; wallet+=StatItemPrice; check(BuyStatItem(3),"The shop remains usable from the stat-exchange screen"); shopOpen=false; }
                     if(n==2) yield return CaptureSmoke(folder,"07-trade");
                     selected=0; int total=stats.Total; ApplyTrade();
                     check(stats.Total==total && !pendingTrade && phase==Phase.Combat,"Exchange preserves all five stats and enters the selected map");
                 }
                 int expected=currentMap.Total;
-                check(enemies.Count+spawnQueue.Count==expected,"Map "+n+" matches its card's enemy count");
-                if(ZeroContent.IsBossRoom(n)) { bosses++; check(enemies.Count==1 && enemies[0].kind==ZeroContent.BossForRoom(n),"Correct boss for map "+n); }
+                bool heartRoom=ZeroContent.IsBossRoom(n) && ZeroContent.BossForRoom(n)==EnemyKind.Heart;
+                check(enemies.Count+spawnQueue.Count==expected+(heartRoom?3:0),"Map "+n+" matches its card and opening summon count");
+                if(ZeroContent.IsBossRoom(n)) { bosses++; check(enemies.FindAll(e=>e.kind==ZeroContent.BossForRoom(n)).Count==1,"Correct boss for map "+n); }
                 while(spawnQueue.Count>0) SpawnEnemy(spawnQueue.Dequeue(),new Vector2(7,0));
-                for(int i=enemies.Count-1;i>=0;i--) HitEnemy(enemies[i],100000);
+                if(heartRoom)
+                {
+                    var heart=enemies.Find(e=>e.kind==EnemyKind.Heart);
+                    for(int wave=0;wave<3;wave++)
+                    {
+                        for(int i=enemies.Count-1;i>=0;i--) if(enemies[i].summoner==heart) HitEnemy(enemies[i],100000);
+                        TickBoss(heart,.01f); HitEnemy(heart,100000);
+                    }
+                }
+                else for(int i=enemies.Count-1;i>=0;i--) HitEnemy(enemies[i],100000);
                 if(n==1) { stats.Exchange(0,3,4); wallet=1000; }
                 int beforeWallet=wallet, coinValue=0; foreach(var c in coins) coinValue+=c.value;
                 ClearRoom();
                 check(completedRooms==n && pendingTrade,"Cleared map "+n+" owes exactly one exchange");
-                if(n==1) check(wallet==Mathf.Max(0,beforeWallet+coinValue*stats[3]),"Clear auto-collection applies negative fortune to all remaining coins");
+                if(n==1) check(wallet==Mathf.Max(0,beforeWallet+Mathf.RoundToInt(coinValue*ZeroStats.CoinRate(stats[3]))),"Clear auto-collection applies reduced negative fortune to all remaining coins");
                 if(n<LastRoom)
                 {
                     check(phase==Phase.Camp,"Cleared map "+n+" opens the shelter before the next route");
@@ -252,7 +334,8 @@ namespace ZeroHero
             check(deathReward==3 && legacyPoints==3 && totalDeaths==1,"Death grants persistent legacy currency from progress");
             float beforeMeta=StatValue(0); check(UpgradeMeta(0) && legacyPoints==2 && Mathf.Abs(StatValue(0)-beforeMeta-.1f)<.001f,"One legacy point permanently raises a base stat by 0.1");
             yield return CaptureSmoke(folder,"09-death");
-            StartRun(); check(hp==100 && wallet==500 && stats.Total==10 && Mathf.Abs(StatValue(0)-3.1f)<.001f && owned.Count==2 && completedRooms==0 && petrified==0,"Restart resets the run while retaining permanent growth");
+            ReturnToTitle(); check(phase==Phase.Title && Mathf.Abs(StatValue(0)-beforeMeta-.1f)<.001f,"Returning home retains permanent growth");
+            StartRun(); check(hp==100 && wallet==ZeroContent.StartingGold && stats.Total==10 && Mathf.Abs(StatValue(0)-3.1f)<.001f && owned.Count==2 && activeWeapon==10 && completedRooms==0 && petrified==0 && System.Array.TrueForAll(bagItems,item=>item<0),"Restart resets equipment, bag, and run bonuses while retaining permanent growth");
             help=true; yield return CaptureSmoke(folder,"10-controls");
             Application.logMessageReceived -= captureError;
             File.WriteAllLines(Path.Combine(folder,"runtime-checks.txt"),checks);
@@ -262,11 +345,13 @@ namespace ZeroHero
 
         Enemy SmokeArena(EnemyKind kind,int map=1)
         {
-            ClearActors(); pendingTrade=false; phase=Phase.Combat; paused=help=false; room=map; stats=new ZeroStats(); hp=100; shields=0;
+            ClearActors(); pendingTrade=false; shopOpen=false; phase=Phase.Combat; paused=help=false; room=map; stats=new ZeroStats(); hp=100; shields=0;
+            Array.Clear(runStatBonuses,0,runStatBonuses.Length); for(int i=0;i<bagItems.Length;i++) bagItems[i]=-1;
             currentMap=ZeroContent.CreateOffers(map,new System.Random(12))[0]; BuildMap();
             player=new Vector2(-8,Floor+HeroHalf); velocity=Vector2.zero; aim=Vector2.right; jumps=0; grounded=true;
             petrified=dashTime=dropTimer=attackTimer=bombTimer=0; invulnerable=999; spawnTimer=99; roomBanner=0; noticeTime=0;
             activeWeapon=gunSlot=0; swordSlot=10; owned.Add(0); owned.Add(10); bossNotice="";
+            Array.Clear(swordCombo,0,swordCombo.Length); swordAnimTime=swordAnimDuration=0; swordMotion=SwordMotion.None;
             for(int i=0;i<gunAmmo.Length;i++) { gunAmmo[i]=ZeroContent.Weapons[i].magazine; gunReload[i]=0; }
             var target=SpawnEnemy(kind,new Vector2(6,0)); target.timer=99; return target;
         }

@@ -63,14 +63,41 @@ namespace ZeroHero.Editor
             stats = new ZeroStats(); stats.Exchange(0, 2, 3);
             assert(stats.MoveSpeed == 0, "Zero speed stops normal movement");
             stats = new ZeroStats(); stats.Exchange(0, 3, 5);
-            assert(ZeroStats.CollectCoins(10, 2, stats) == 4, "Negative fortune removes money");
+            assert(ZeroStats.CollectCoins(10, 2, stats) == 7, "Reduced negative fortune removes money at half rate");
             assert(ZeroStats.CollectCoins(1, 2, stats) == 0, "Wallet cannot underflow");
+            assert(Math.Abs(ZeroStats.CoinRate(2)-1f)<.001f && Math.Abs(ZeroStats.CoinRate(3)-1.5f)<.001f, "Fortune changes coin value by fifty percent per point");
             bool rejected = false; try { stats.Exchange(0, 0, 3); } catch (ArgumentException) { rejected = true; }
             assert(rejected, "Reject same-stat exchange");
             rejected = false; try { stats.Exchange(0, 1, 0); } catch (ArgumentException) { rejected = true; }
             assert(rejected, "Reject zero exchange");
             assert(ZeroContent.Weapons.Length == 20, "Twenty weapons");
-            assert(ZeroContent.Weapons[9].price == 10000 && ZeroContent.Weapons[19].price == 9500, "Late weapon prices reach about ten thousand gold");
+            int[] weaponPrices = { 0,200,250,350,500,650,850,1050,1300,2000 };
+            int totalWeaponCost = 0;
+            for (int i = 0; i < weaponPrices.Length; i++)
+            {
+                assert(ZeroContent.Weapons[i].price == weaponPrices[i], "Gun price " + i);
+                assert(ZeroContent.Weapons[10+i].price == weaponPrices[i], "Sword price " + i);
+                totalWeaponCost += weaponPrices[i] * 2;
+            }
+            assert(totalWeaponCost == 14300, "Full gun and sword catalog price");
+            assert(ZeroContent.BaseCoinValue(EnemyKind.Human) == 5 && ZeroContent.BaseCoinValue(EnemyKind.Giant) == 8 && ZeroContent.BaseCoinValue(EnemyKind.Medusa) == 20, "Low opening coin values by enemy tier");
+            assert(ZeroContent.CoinMultiplier(1) == 1 && ZeroContent.CoinMultiplier(5) == 2 && ZeroContent.CoinMultiplier(17) == 5, "Coin value grows once per act");
+            int[] minimumRawGold = { 0,60,60,60,240,160,160,160,480,360,360,360,720,480,480,480,960,800,800 };
+            int baselineFortune = new ZeroStats()[3], economyWallet = ZeroContent.StartingGold;
+            float baselineCoinRate = ZeroStats.CoinRate(baselineFortune);
+            assert(economyWallet < weaponPrices[1], "Paid weapons require earned gold");
+            assert(Mathf.RoundToInt(minimumRawGold[1] * baselineCoinRate) < weaponPrices[1], "First-map baseline income cannot buy any paid weapon");
+            for (int map = 1; map <= 18; map++)
+            {
+                if (map == 18) assert(economyWallet + weaponPrices[1] + weaponPrices[2] < totalWeaponCost, "Full catalog is unavailable on the poorest route before map eighteen");
+                economyWallet += Mathf.RoundToInt(minimumRawGold[map] * baselineCoinRate);
+                if (map == 3) assert(economyWallet < weaponPrices[1], "Reduced income delays the first paid weapon through map three");
+                if (map == 4) { assert(economyWallet >= weaponPrices[1], "First paid weapon is affordable after map four"); economyWallet -= weaponPrices[1]; }
+                if (map == 5) { assert(economyWallet >= weaponPrices[2], "Second paid weapon is affordable after map five"); economyWallet -= weaponPrices[2]; }
+            }
+            assert(economyWallet + weaponPrices[1] + weaponPrices[2] < totalWeaponCost, "Reduced baseline income no longer buys the full catalog by map eighteen");
+            int rawGoldThroughSix = 0; for (int map = 1; map <= 6; map++) rawGoldThroughSix += minimumRawGold[map];
+            assert(Mathf.RoundToInt(rawGoldThroughSix*ZeroStats.CoinRate(baselineFortune+1)) < weaponPrices[9], "Reduced fortune scaling prevents an excessively early final-weapon rush");
             stats = new ZeroStats();
             var weaponNames = new System.Collections.Generic.HashSet<string>();
             for (int i = 0; i < ZeroContent.Weapons.Length; i++)
@@ -82,6 +109,12 @@ namespace ZeroHero.Editor
                 assert(weapon.gun ? weapon.bulletSpeed > 0 : weapon.reach > 0, "Weapon range or projectile speed " + i);
                 assert(weapon.Damage(stats) == weapon.power, "Base attack reproduces listed weapon damage " + i);
             }
+            assert(ZeroContent.Weapons[10].power == 30 && ZeroContent.Weapons[10].rate == 2f, "Rusty sword is stronger and attacks twice per second");
+            assert(ZeroContent.Weapons[11].rate == 8.4f && ZeroContent.Weapons[11].reach == 1.2f, "Dagger doubles its attack rate and shortens its reach");
+            assert(ZeroContent.Weapons[12].power == 45 && ZeroContent.Weapons[12].rate == 2f, "Military sword trades speed for higher damage");
+            assert(ZeroContent.Weapons[13].reach == 4f, "Rapier has extra-long thrust reach");
+            assert(ZeroContent.Weapons[15].reach == 3.5f && ZeroContent.Weapons[16].reach == 4f, "Longsword and greatsword have extended reach");
+            assert(ZeroContent.Weapons[17].rate == 10f && ZeroContent.Weapons[17].reach == 1.8f, "Curved sword is short and attacks ten times per second");
             int[] magazines = { 8,6,30,10,12,25,100,5,2,-1 };
             for (int i = 0; i < 10; i++)
             {
@@ -103,11 +136,12 @@ namespace ZeroHero.Editor
                 for (int map = 1; map <= ZeroContent.TotalRooms; map++)
                 {
                     var offers = ZeroContent.CreateOffers(map, new System.Random(seed));
-                    assert(offers.Length == 3, "Three map offers");
+                    assert(offers.Length == (ZeroContent.IsBossRoom(map) ? 1 : 3), "Three regular offers and one boss offer");
                     var layouts = new System.Collections.Generic.HashSet<int>();
                     foreach (var offer in offers)
                     {
                         assert(offer.Total > 0 && layouts.Add(offer.layout), "Nonempty encounter and distinct terrain");
+                        if (map <= 18) assert(ZeroContent.RawCoinReward(offer,map) >= minimumRawGold[map], "Map reward meets the economy floor " + map);
                         assert(offer.Boss == (map % 4 == 0), "Three regular maps before each boss");
                         if (offer.Boss) assert(offer.Total == 1 && offer.counts[(int)ZeroContent.BossForRoom(map)] == 1 && offer.theme == ZeroContent.BossTheme(ZeroContent.BossForRoom(map)), "Correct boss and background");
                         else

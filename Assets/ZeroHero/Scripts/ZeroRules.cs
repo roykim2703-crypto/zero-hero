@@ -22,7 +22,10 @@ namespace ZeroHero
         public int HealingReceived(int amount) => Math.Max(0, amount) + (amount > 0 ? Math.Max(0, -values[1]) * 2 : 0);
         public float CriticalMultiplier(bool inverted = false) => Math.Max(.1f, 1 + values[4] * (inverted ? -.2f : .2f));
         public int CriticalDamage(int damage, bool inverted = false) => (int)Math.Round(damage * CriticalMultiplier(inverted));
-        public int CoinChange(int value) => value * values[3];
+        public const float CoinRatePerFortune = .5f;
+        public static float CoinRate(float fortune) => fortune * CoinRatePerFortune;
+        public static int CoinChange(int value, float fortune) => (int)Math.Round(value * CoinRate(fortune), MidpointRounding.AwayFromZero);
+        public int CoinChange(int value) => CoinChange(value, values[3]);
         public static string Name(int index) => new[] { "공격력", "방어력", "이동 속도", "자금 획득", "치명타 피해" }[index];
 
         public void Exchange(int increase, int decrease, int amount)

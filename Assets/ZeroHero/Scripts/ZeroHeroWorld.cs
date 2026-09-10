@@ -106,10 +106,34 @@ namespace ZeroHero
             => Sprite(name,sprite,color,pos,scale,order,scenery);
         void Platform(float x,float top,float width,Color color)
         {
-            platforms.Add(new Rect(x-width/2,top-.3f,width,.3f));
-            Back("Platform",art.square,color,new Vector2(x,top-.14f),new Vector2(width,.28f),-5);
-            Back("Platform edge",art.square,color*1.2f,new Vector2(x,top-.025f),new Vector2(width,.05f),-4);
-            for(int i=0;i<4;i++) Back("Ledge stones",art.square,color*.72f,new Vector2(x-width/2+.35f+i*(width-.7f)/3,top-.35f),new Vector2(.55f,.2f),-6);
+            var ledge = new PlatformLedge { rect = new Rect(x-width/2,top-.3f,width,.3f) };
+            ledge.visuals.Add(Back("Platform",art.square,color,new Vector2(x,top-.14f),new Vector2(width,.28f),-5));
+            ledge.visuals.Add(Back("Platform edge",art.square,color*1.2f,new Vector2(x,top-.025f),new Vector2(width,.05f),-4));
+            for(int i=0;i<4;i++) ledge.visuals.Add(Back("Ledge stones",art.square,color*.72f,new Vector2(x-width/2+.35f+i*(width-.7f)/3,top-.35f),new Vector2(.55f,.2f),-6));
+            platforms.Add(ledge);
+        }
+        void TickPlatforms(float dt)
+        {
+            foreach(var ledge in platforms)
+            {
+                if(ledge.active)
+                {
+                    if(ledge.collapse < 0) continue;
+                    ledge.collapse -= dt;
+                    bool visible = ledge.collapse <= 0 || Mathf.Sin(ledge.collapse*32) > -.25f;
+                    foreach(var visual in ledge.visuals) visual.enabled = visible;
+                    if(ledge.collapse > 0) continue;
+                    ledge.active = false; ledge.respawn = 2.75f;
+                    foreach(var visual in ledge.visuals) visual.enabled = false;
+                }
+                else
+                {
+                    ledge.respawn -= dt;
+                    if(ledge.respawn > 0) continue;
+                    ledge.active = true; ledge.collapse = -1;
+                    foreach(var visual in ledge.visuals) visual.enabled = true;
+                }
+            }
         }
         void Trees(Color color,bool leaves)
         {

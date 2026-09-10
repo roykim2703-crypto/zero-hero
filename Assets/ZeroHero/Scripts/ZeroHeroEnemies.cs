@@ -4,10 +4,10 @@ namespace ZeroHero
 {
     public sealed partial class ZeroHeroGame
     {
-        Enemy SpawnEnemy(EnemyKind kind,Vector2 pos)
+        Enemy SpawnEnemy(EnemyKind kind,Vector2 pos,float strength=1,Enemy summoner=null)
         {
             var d=ZeroContent.Enemies[(int)kind];
-            var e=new Enemy { kind=kind,pos=pos,maxHp=d.health*(d.Boss?1:1+Act*.22f),timer=Range(.6f,1.7f),jumpTimer=1 };
+            var e=new Enemy { kind=kind,summoner=summoner,strength=strength,pos=pos,maxHp=d.health*(d.Boss?1:1+Act*.22f)*strength,timer=Range(.6f,1.7f),jumpTimer=1,invulnerable=kind==EnemyKind.Heart };
             e.hp=e.maxHp; e.facing=player.x<e.pos.x?-1:1; e.turnTimer=2.4f; e.pos.y=e.Flying?(kind==EnemyKind.Angel?1.3f:.3f):Floor+d.size*.55f;
             e.root=new GameObject(d.name).transform; e.root.SetParent(world); e.root.position=e.pos;
             Sprite("Shadow",art.disc,new Color(0,0,0,.3f),new Vector2(0,-d.size*.5f),new Vector2(d.size,.16f),10,e.root);
@@ -34,7 +34,9 @@ namespace ZeroHero
                 }
             if(kind==EnemyKind.Beelzebub)
                 for(int i=0;i<9;i++) { var f=Sprite("Swarm fly",art.fly,Color.white,Vector2.zero,Vector2.one*.95f,23,e.root); f.enabled=false; e.flies.Add(f); }
-            enemies.Add(e); AddEffect(art.ring,e.pos,ZeroHeroArt.Pink,.5f,.2f,Vector2.zero,2); return e;
+            enemies.Add(e); AddEffect(art.ring,e.pos,ZeroHeroArt.Pink,.5f,.2f,Vector2.zero,2);
+            if(kind==EnemyKind.Heart) StartHeartWave(e);
+            return e;
         }
 
         void TickEnemies(float dt)
@@ -46,7 +48,7 @@ namespace ZeroHero
                 e.root.position=e.pos;
                 e.body.flipX=e.kind==EnemyKind.RearGuard?e.facing<0:player.x<e.pos.x;
                 if(e.guard!=null) e.guard.transform.localPosition=new Vector2(e.facing*.6f,0);
-                e.body.color=e.flash>0?ZeroHeroArt.Gain:e.casting?Color.Lerp(Color.white,ZeroHeroArt.Gold,.38f):Color.white;
+                e.body.color=e.flash>0?ZeroHeroArt.Gain:e.invulnerable?Color.Lerp(C("6F2638"),Color.white,.25f+Mathf.Abs(Mathf.Sin(visualTime*8))*.25f):e.casting?Color.Lerp(Color.white,ZeroHeroArt.Gold,.38f):e.strength>1?Color.Lerp(Color.white,ZeroHeroArt.Pink,Mathf.Clamp01((e.strength-1)*.45f)):Color.white;
                 float pulse=e.kind==EnemyKind.Heart?1+Mathf.Sin(visualTime*5.8f)*.08f:1;
                 e.body.transform.localScale=Vector3.one*(e.flyTime>0?.6f:e.Def.size*pulse);
                 e.health.transform.localScale=new Vector3(e.Def.size*e.hp/e.maxHp,.075f,1);
@@ -56,7 +58,7 @@ namespace ZeroHero
         }
         void TickNormal(Enemy e,float dt)
         {
-            float dx=player.x-e.pos.x, distance=Mathf.Abs(dx); float speed=e.Def.speed;
+            float dx=player.x-e.pos.x, distance=Mathf.Abs(dx); float speed=e.Def.speed*Mathf.Lerp(1,e.strength,.55f);
             if(e.kind==EnemyKind.RearGuard)
             { e.turnTimer-=dt; if(e.turnTimer<=0 && !e.casting && Mathf.Abs(dx)>.01f) { e.facing=Mathf.Sign(dx); e.turnTimer=2.4f; } }
             bool ranged=e.kind==EnemyKind.Elf || e.kind==EnemyKind.Inverter;
@@ -70,15 +72,15 @@ namespace ZeroHero
                     if(ranged)
                     {
                         Vector2 delta=player-e.pos; float flight=Mathf.Max(.2f,delta.magnitude/10);
-                        CreateShot(e.pos,delta/flight+Vector2.up*2*flight,e.Def.damage,true,ShotKind.Arrow,1,4);
+                        CreateShot(e.pos,delta/flight+Vector2.up*2*flight,e.Damage,true,ShotKind.Arrow,1,4);
                     }
                     else if(e.kind==EnemyKind.Giant)
                     {
                         shake=.18f;
-                        AddHazard(new Vector2(e.pos.x+Mathf.Sign(dx)*1.5f,Floor+.6f),new Vector2(3.4f,1.2f),0,.25f,e.Def.damage,ZeroHeroArt.Pink);
-                        CreateShot(new Vector2(e.pos.x,Floor+.35f),new Vector2(Mathf.Sign(dx)*5,0),e.Def.damage/2,true,ShotKind.Blood);
+                        AddHazard(new Vector2(e.pos.x+Mathf.Sign(dx)*1.5f,Floor+.6f),new Vector2(3.4f,1.2f),0,.25f,e.Damage,ZeroHeroArt.Pink);
+                        CreateShot(new Vector2(e.pos.x,Floor+.35f),new Vector2(Mathf.Sign(dx)*5,0),e.Damage/2,true,ShotKind.Blood);
                     }
-                    else if(Vector2.Distance(e.pos,player)<1.65f) Hurt(e.Def.damage);
+                    else if(Vector2.Distance(e.pos,player)<1.65f) Hurt(e.Damage);
                     e.casting=false; e.timer=ranged?1.9f:e.kind==EnemyKind.Giant?2.6f:1.15f;
                 }
             }
@@ -95,13 +97,17 @@ namespace ZeroHero
         static readonly string[][] BossPatterns = {
             new[] { "석화 광선 — 빛줄기에서 벗어나세요", "뱀 투척 — 점프로 피하세요", "독 웅덩이 — 표시된 바닥에서 이동", "낙석 — 낙하 위치를 확인하세요" },
             new[] { "심판 기둥 — 기둥 사이로 이동", "눈의 탄막 — 빈틈을 통과하세요", "날개 돌진 — 높이를 바꾸세요", "깃털 비 — 발판 아래도 안전하지 않습니다" },
-            new[] { "박동 — 지면 충격파를 넘으세요", "피 분사 — 퍼지는 탄환에 주의", "혈전 소환 — 언데드 3마리", "출혈 지대 — 붉은 바닥에서 벗어나세요" },
+            new[] { "피의 파도 — 화면 전체를 가로지릅니다", "피 분사 — 솟구친 피가 바닥에 쌓입니다", "핏비 — 세로 낙하 지점을 피하세요", "출혈 지대 — 쌓인 피에서 벗어나세요" },
             new[] { "파리 무리 — 변신 중에도 공격 가능합니다", "부패탄 — 추적하는 파리", "독액 — 착탄 위치를 피하세요", "파리 돌진 — 위아래로 회피" },
             new[] { "순간이동 베기 — 뒤쪽을 확인하세요", "불기둥 — 표시된 자리를 피하세요", "군단 소환 — 오크와 고블린", "운석 — 이동을 멈추지 마세요", "화염파 — 점프 높이를 조절하세요" }
         };
 
         void TickBoss(Enemy e,float dt)
         {
+            if(e.kind==EnemyKind.Heart && TickHeartShield(e,dt))
+            {
+                e.pos.x=Mathf.Clamp(e.pos.x,Left+2,Right-2); e.pos.y=Mathf.Clamp(e.pos.y,Floor+e.Radius,4); return;
+            }
             if(e.flyTime>0)
             {
                 e.flyTime-=dt;
@@ -153,7 +159,8 @@ namespace ZeroHero
                     if(e.pattern==2) AddBeam(e.pos,(player-e.pos).normalized,1.05f,26);
                     break;
                 case EnemyKind.Heart:
-                    if(e.pattern==0) AddHazard(new Vector2(e.pos.x,Floor+.1f),new Vector2(5,.12f),1.05f,.01f,0,ZeroHeroArt.Pink);
+                    if(e.pattern==0) AddHazard(new Vector2(0,e.target.y),new Vector2(29,.55f),1.05f,.5f,26,ZeroHeroArt.Pink);
+                    if(e.pattern==2) MarkHeartRain(e,7,1.05f);
                     if(e.pattern==3) GroundPools(e.target.x,4,1.05f,3.5f,15,ZeroHeroArt.Pink);
                     break;
                 case EnemyKind.Beelzebub:
@@ -189,14 +196,11 @@ namespace ZeroHero
                         for(int i=0;i<11;i++) CreateShot(new Vector2(-13+i*2.6f,5.4f),new Vector2((i%2==0?1:-1)*1.1f,-4.8f),19,true,ShotKind.Arrow);
                     break;
                 case EnemyKind.Heart:
-                    if(e.pattern==0)
-                        for(int sign=-1;sign<=1;sign+=2) { CreateShot(new Vector2(e.pos.x,Floor+.35f),new Vector2(sign*7,0),25,true,ShotKind.Blood); CreateShot(new Vector2(e.pos.x,Floor+.6f),new Vector2(sign*5,0),21,true,ShotKind.Blood); }
-                    if(e.pattern==1) FanShots(e,9,6,18,ShotKind.Blood,.16f);
-                    if(e.pattern==2)
-                    {
-                        for(int i=0;i<3;i++) SpawnEnemy(EnemyKind.Undead,new Vector2(e.pos.x-2+i*2,Floor));
-                        e.hp=Mathf.Min(e.maxHp,e.hp+18); Float(e.pos,"+18",ZeroHeroArt.Gain);
-                    }
+                    if(e.pattern==0) HeartCrossScreenBlood(e);
+                    if(e.pattern==1) HeartBloodFan(e,11,8,18,.15f);
+                    if(e.pattern==2) DropHeartRain(e,7,22);
+                    AddHeartBloodPool(e.target.x+Range(-3.5f,3.5f),12+e.heartAttacks/2,1.6f+Mathf.Min(1.2f,e.heartAttacks*.12f));
+                    e.heartAttacks++;
                     break;
                 case EnemyKind.Beelzebub:
                     if(e.pattern==0) { e.flyTime=3.2f; AddEffect(art.ring,e.pos,C("9AA16C"),.5f,1,Vector2.zero,6); }
